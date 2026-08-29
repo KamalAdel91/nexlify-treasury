@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/treasury/css/treasury.css"
-# app_include_js = "/assets/treasury/js/treasury.js"
+app_include_js = "/assets/treasury/js/treasury_bank_recon.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/treasury/css/treasury.css"
@@ -255,4 +255,51 @@ app_license = "mit"
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
+
+# Bank Reconciliation (ERPNext) integration
+# -----------------------------------------
+
+# Cheques appear as checkboxes in the "Reconcile the Bank Transaction" dialog
+bank_reconciliation_doctypes = ["Cheque Receipt", "Cheque Payment"]
+
+# Propose pending cheques (Under Collection deposits / Issued payments) for a Bank Transaction
+get_matching_queries = [
+	"treasury.treasury.utils.bank_reconciliation.get_matching_queries_hook"
+]
+
+# Post the stage-3 closing GL when Treasury cheques are reconciled, then delegate to ERPNext
+override_whitelisted_methods = {
+	"erpnext.accounts.doctype.bank_reconciliation_tool.bank_reconciliation_tool.reconcile_vouchers": "treasury.treasury.utils.bank_reconciliation.reconcile_vouchers_with_cheques"
+}
+
+# Revert GL + cheque statuses when a Bank Transaction is cancelled or a cheque is unreconciled
+doc_events = {
+	"Bank Transaction": {
+		"on_cancel": "treasury.treasury.utils.bank_reconciliation.on_bank_transaction_cancel",
+		"on_update": "treasury.treasury.utils.bank_reconciliation.on_bank_transaction_update",
+	},
+	# Cheque lifecycle registry ("All Cheques")
+	"Cheque Receipt": {
+		"on_submit": "treasury.treasury.utils.cheque_lifecycle.upsert_from_source",
+		"on_cancel": "treasury.treasury.utils.cheque_lifecycle.on_source_cancelled",
+	},
+	"Cheque Payment": {
+		"on_submit": "treasury.treasury.utils.cheque_lifecycle.upsert_from_source",
+		"on_cancel": "treasury.treasury.utils.cheque_lifecycle.on_source_cancelled",
+	},
+	"Cheque Deposit": {
+		"on_submit": "treasury.treasury.utils.cheque_lifecycle.sync_stage",
+		"on_cancel": "treasury.treasury.utils.cheque_lifecycle.sync_stage",
+		"on_trash": "treasury.treasury.utils.cheque_lifecycle.sync_stage",
+	},
+	"Cheque Reconciliation": {
+		"on_submit": "treasury.treasury.utils.cheque_lifecycle.sync_stage",
+		"on_cancel": "treasury.treasury.utils.cheque_lifecycle.sync_stage",
+		"on_trash": "treasury.treasury.utils.cheque_lifecycle.sync_stage",
+	},
+}
+
+# The lifecycle registry is a mirror: its links to stage documents must never
+# block cancelling/deleting those documents.
+ignore_links_on_delete = ["All Cheques"]
 
