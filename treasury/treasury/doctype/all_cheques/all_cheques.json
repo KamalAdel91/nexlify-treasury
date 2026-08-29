@@ -1,7 +1,7 @@
 {
  "actions": [],
  "autoname": "format:{source_doc}",
- "creation": "2026-08-28 20:00:00.000000",
+ "creation": "2026-08-28 20:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -24,36 +24,37 @@
   "cheque_reconciliation",
   "bank_transaction",
   "section_break_timeline",
-  "lifecycle_html"
+  "lifecycle_html",
+  "column_break_prqv"
  ],
  "fields": [
   {
+   "columns": 1,
    "fieldname": "direction",
    "fieldtype": "Select",
-   "label": "Direction",
-   "options": "\nIncoming\nOutgoing",
-   "reqd": 1,
-   "read_only": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "columns": 1
+   "label": "Direction",
+   "options": "\nIncoming\nOutgoing",
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_standard_filter": 1,
    "label": "Company",
    "options": "Company",
-   "reqd": 1,
    "read_only": 1,
-   "in_standard_filter": 1
+   "reqd": 1
   },
   {
    "fieldname": "source_doctype",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Source DocType",
    "options": "DocType",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "source_doc",
@@ -65,10 +66,10 @@
   {
    "fieldname": "cheque_no",
    "fieldtype": "Data",
-   "label": "Cheque No",
-   "read_only": 1,
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Cheque No",
+   "read_only": 1
   },
   {
    "fieldname": "cheque_date",
@@ -79,17 +80,17 @@
   {
    "fieldname": "drawn_bank",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Drawn Bank",
-   "read_only": 1,
-   "in_list_view": 1
+   "read_only": 1
   },
   {
    "fieldname": "amount",
    "fieldtype": "Currency",
-   "label": "Amount",
-   "read_only": 1,
    "in_list_view": 1,
-   "options": "currency"
+   "label": "Amount",
+   "options": "currency",
+   "read_only": 1
   },
   {
    "fieldname": "currency",
@@ -107,17 +108,17 @@
   {
    "fieldname": "party",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Party",
-   "read_only": 1,
-   "in_list_view": 1
+   "read_only": 1
   },
   {
    "fieldname": "current_status",
    "fieldtype": "Data",
-   "label": "Current Status",
-   "read_only": 1,
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Current Status",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_links",
@@ -168,11 +169,15 @@
    "fieldname": "lifecycle_html",
    "fieldtype": "HTML",
    "label": "Lifecycle"
+  },
+  {
+   "fieldname": "column_break_prqv",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-28 20:00:00.000000",
+ "modified": "2026-08-30 00:51:15.538165",
  "modified_by": "Administrator",
  "module": "Treasury",
  "name": "All Cheques",
@@ -180,18 +185,20 @@
  "owner": "Administrator",
  "permissions": [
   {
-   "role": "System Manager",
-   "read": 1,
-   "write": 1,
    "create": 1,
-   "delete": 1
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
   },
   {
-   "role": "Accounts User",
-   "read": 1
+   "read": 1,
+   "role": "Accounts User"
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }

@@ -1,54 +1,67 @@
 {
  "actions": [],
- "allow_rename": 0,
  "autoname": "format:CHQ-RCN-{YYYY}-{####}",
  "creation": "2026-08-28 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
- "is_virtual": 0,
- "issingle": 0,
- "istable": 0,
- "is_submittable": 1,
- "module": "Treasury",
- "name": "Cheque Reconciliation",
- "naming_rule": "Expression",
- "owner": "Administrator",
- "sort_field": "creation",
- "sort_order": "DESC",
- "track_changes": 1,
+ "field_order": [
+  "company",
+  "bank_transaction",
+  "bank_account",
+  "posting_date",
+  "currency",
+  "total_amount",
+  "column_break_dzve",
+  "section_break_cheque",
+  "cheque_type",
+  "cheque",
+  "cheque_no",
+  "cheque_date",
+  "section_break_party",
+  "party_type",
+  "party",
+  "party_name",
+  "section_break_gl",
+  "gl_preview",
+  "remarks",
+  "amended_from"
+ ],
  "fields": [
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Company",
    "options": "Company",
    "reqd": 1
   },
   {
+   "description": "The Bank Transaction this clearance belongs to.",
    "fieldname": "bank_transaction",
    "fieldtype": "Link",
-   "label": "Bank Transaction",
-   "options": "Bank Transaction",
-   "read_only": 1,
-   "no_copy": 1,
    "in_standard_filter": 1,
-   "description": "The Bank Transaction this clearance belongs to."
+   "label": "Bank Transaction",
+   "no_copy": 1,
+   "options": "Bank Transaction",
+   "read_only": 1
   },
   {
+   "description": "The bank account from the Bank Transaction.",
    "fieldname": "bank_account",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Bank Account",
    "options": "Bank Account",
-   "reqd": 1,
    "read_only": 1,
-   "description": "The bank account from the Bank Transaction."
+   "reqd": 1
   },
   {
+   "description": "The Bank Transaction date (not the deposit date).",
    "fieldname": "posting_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Posting Date",
-   "reqd": 1,
-   "description": "The Bank Transaction date (not the deposit date)."
+   "reqd": 1
   },
   {
    "fieldname": "currency",
@@ -72,18 +85,19 @@
   {
    "fieldname": "cheque_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Cheque Type",
    "options": "\nCheque Receipt\nCheque Payment",
-   "reqd": 1,
-   "read_only": 1
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "cheque",
    "fieldtype": "Dynamic Link",
    "label": "Cheque",
    "options": "cheque_type",
-   "reqd": 1,
-   "read_only": 1
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "cheque_no",
@@ -137,28 +151,30 @@
    "fieldtype": "Small Text",
    "label": "Remarks",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_dzve",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cheque Reconciliation",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
- "field_order": [
-  "company",
-  "bank_transaction",
-  "bank_account",
-  "posting_date",
-  "currency",
-  "total_amount",
-  "section_break_cheque",
-  "cheque_type",
-  "cheque",
-  "cheque_no",
-  "cheque_date",
-  "section_break_party",
-  "party_type",
-  "party",
-  "party_name",
-  "section_break_gl",
-  "gl_preview",
-  "remarks"
- ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-08-30 00:51:02.731007",
+ "modified_by": "Administrator",
+ "module": "Treasury",
+ "name": "Cheque Reconciliation",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
  "permissions": [
   {
    "amend": 1,
@@ -174,5 +190,10 @@
    "submit": 1,
    "write": 1
   }
- ]
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
 }
