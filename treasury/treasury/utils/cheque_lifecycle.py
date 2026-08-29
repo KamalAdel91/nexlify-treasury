@@ -196,19 +196,34 @@ def sync_stage(doc, method=None):
 
 @frappe.whitelist()
 def backfill_lifecycles():
-    """Heal every submitted cheque: recompute state + ensure registry exists."""
+    """Heal every submitted cheque: recompute state + ensure registry exists.
+
+    Processes in batches of 500 with a commit between batches to keep
+    memory usage constant regardless of total cheque count.
+    """
 
     from treasury.treasury.utils.validations import require_treasury_role
 
     require_treasury_role()
-    created, synced = 0, 0
+    created, synced, batch = 0, 0, 0
+    BATCH = 500
+
     for doctype in SOURCE_DOCTYPES:
-        for name in frappe.get_all(doctype, filters={"docstatus": 1}, pluck="name"):
+        names = frappe.get_all(doctype, filters={"docstatus": 1}, pluck="name")
+        if not names:
+            continue
+
+        for name in names:
             before = frappe.db.get_value(doctype, name, "cheque_status")
             state = sync_cheque_state(doctype, name)
             synced += 1
             if state and state["cheque_status"] != before:
                 created += 1
+            batch += 1
+            if batch >= BATCH:
+                frappe.db.commit()
+                batch = 0
+
     frappe.db.commit()
     return {"cheques_synced": synced, "statuses_corrected": created}
 
