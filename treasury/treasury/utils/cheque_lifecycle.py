@@ -269,7 +269,7 @@ def get_lifecycle(all_cheques):
                 "Cheque Deposit",
                 dep.name,
                 "cheque-deposit",
-                "Under Collection",
+                src.cheque_status,
                 dep.docstatus == 2,
                 "Banked at {0}".format(dep.bank or "-"),
             )
