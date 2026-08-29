@@ -1,0 +1,180 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:CHQ-RCN-{YYYY}-{####}",
+ "creation": "2026-08-28 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "is_virtual": 0,
+ "issingle": 0,
+ "istable": 0,
+ "is_submittable": 1,
+ "module": "Treasury",
+ "name": "Cheque Reconciliation",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1,
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bank_transaction",
+   "fieldtype": "Link",
+   "label": "Bank Transaction",
+   "options": "Bank Transaction",
+   "read_only": 1,
+   "no_copy": 1,
+   "in_standard_filter": 1,
+   "description": "The Bank Transaction this clearance belongs to."
+  },
+  {
+   "fieldname": "bank_account",
+   "fieldtype": "Link",
+   "label": "Bank Account",
+   "options": "Bank Account",
+   "reqd": 1,
+   "read_only": 1,
+   "description": "The bank account from the Bank Transaction."
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "reqd": 1,
+   "description": "The Bank Transaction date (not the deposit date)."
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Currency",
+   "label": "Total Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_cheque",
+   "fieldtype": "Section Break",
+   "label": "Cheque"
+  },
+  {
+   "fieldname": "cheque_type",
+   "fieldtype": "Select",
+   "label": "Cheque Type",
+   "options": "\nCheque Receipt\nCheque Payment",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "cheque",
+   "fieldtype": "Dynamic Link",
+   "label": "Cheque",
+   "options": "cheque_type",
+   "reqd": 1,
+   "read_only": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "cheque_no",
+   "fieldtype": "Data",
+   "label": "Cheque Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cheque_date",
+   "fieldtype": "Date",
+   "label": "Cheque Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_party",
+   "fieldtype": "Section Break",
+   "label": "Party"
+  },
+  {
+   "fieldname": "party_type",
+   "fieldtype": "Link",
+   "label": "Party Type",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "label": "Party",
+   "options": "party_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "party_name",
+   "fieldtype": "Data",
+   "label": "Party Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_gl",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "gl_preview",
+   "fieldtype": "Small Text",
+   "label": "GL Preview",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks",
+   "read_only": 1
+  }
+ ],
+ "field_order": [
+  "company",
+  "bank_transaction",
+  "bank_account",
+  "posting_date",
+  "currency",
+  "total_amount",
+  "section_break_cheque",
+  "cheque_type",
+  "cheque",
+  "cheque_no",
+  "cheque_date",
+  "section_break_party",
+  "party_type",
+  "party",
+  "party_name",
+  "section_break_gl",
+  "gl_preview",
+  "remarks"
+ ],
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "submit": 1,
+   "write": 1
+  }
+ ]
+}
