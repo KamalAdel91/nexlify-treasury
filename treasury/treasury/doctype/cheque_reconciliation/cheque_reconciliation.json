@@ -83,8 +83,7 @@
    "label": "Cheque",
    "options": "cheque_type",
    "reqd": 1,
-   "read_only": 1,
-   "unique": 1
+   "read_only": 1
   },
   {
    "fieldname": "cheque_no",

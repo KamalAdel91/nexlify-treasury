@@ -303,3 +303,11 @@ doc_events = {
 # block cancelling/deleting those documents.
 ignore_links_on_delete = ["All Cheques"]
 
+# Re-assert the DB-level UNIQUE index on Cheque Reconciliation.cheque after each
+# migrate. The field is a Dynamic Link, so it cannot declare `unique: 1` in the
+# DocType meta (Edit DocType validation rejects that combination); the index is
+# maintained at the DB layer and rebuilt here whenever schema sync drops it.
+after_migrate = [
+	"treasury.patches.add_unique_index_cheque_reconciliation.ensure_unique_index"
+]
+

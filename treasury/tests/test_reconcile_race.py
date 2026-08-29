@@ -128,6 +128,30 @@ class TestDoubleReconcileProtection(FrappeTestCase):
 			self.assertEqual(idx["Non_unique"], 0)
 
 
+	def test_unique_index_recreated_after_sync_drop(self):
+		"""B3 — schema sync drops hand-added indexes the meta no longer declares;
+		the after_migrate guard must rebuild the UNIQUE index on cheque."""
+		from treasury.patches.add_unique_index_cheque_reconciliation import ensure_unique_index
+
+		frappe.db.sql_ddl("ALTER TABLE `tabCheque Reconciliation` DROP INDEX `cheque`")
+		frappe.db.commit()
+		try:
+			ensure_unique_index()
+			frappe.db.commit()
+			indexes = frappe.db.sql(
+				"SHOW INDEX FROM `tabCheque Reconciliation` "
+				"WHERE Column_name = 'cheque' AND Non_unique = 0",
+				as_dict=True,
+			)
+			self.assertGreaterEqual(
+				len(indexes), 1,
+				"after_migrate guard did not recreate the UNIQUE index on cheque",
+			)
+		finally:
+			ensure_unique_index()
+			frappe.db.commit()
+
+
 # ── Threading race test (DISABLED — manual diagnostic only) ──
 
 RACE_RESULTS = []
