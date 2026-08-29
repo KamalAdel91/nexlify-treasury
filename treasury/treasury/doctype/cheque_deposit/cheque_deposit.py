@@ -3,28 +3,60 @@
 
 import frappe
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
-from erpnext.accounts.utils import get_account_currency
+from erpnext.accounts.utils import get_account_currency, get_fiscal_years
+from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate
 from frappe import _
-from frappe.model.document import Document
-from frappe.utils import flt, getdate
+from frappe.utils import flt, formatdate, getdate
 
 
 CHEQUE_STATUS_IN_HAND = "Cheques In Hand"
 CHEQUE_STATUS_UNDER_COLLECTION = "Under Collection"
 
 
-class ChequeDeposit(Document):
+class ChequeDeposit(AccountsController):
 	def on_trash(self):
 		from treasury.treasury.utils.ledger import delete_voucher_ledger_entries
 		delete_voucher_ledger_entries(self)
 	def validate(self):
+		self.set_missing_values()
+		self._validate_frozen_accounting()
+		self.validate_currency()
 		if not self.company:
 			frappe.throw(_("Company is required"))
 		if not self.bank:
 			frappe.throw(_("Bank is required"))
 		self.currency = self.currency or frappe.db.get_value("Company", self.company, "default_currency")
 		self.validate_items()
+
+	def set_missing_values(self):
+		if frappe.in_test and not self.posting_date:
+			self.posting_date = frappe.utils.today()
+
+	def _validate_frozen_accounting(self):
+		if not self.company or not self.posting_date:
+			return
+		frozen_till = frappe.db.get_value("Company", self.company, "accounts_frozen_till_date")
+		if not frozen_till:
+			return
+		if getdate(self.posting_date) <= getdate(frozen_till):
+			modifier_role = frappe.db.get_value(
+				"Accounts Settings", "Accounts Settings", "frozen_accounts_modifier"
+			)
+			if modifier_role not in frappe.get_roles() and frappe.session.user != "Administrator":
+				frappe.throw(
+					_("Posting date {0} falls before Accounts Frozen Till {1} for Company {2}. "
+					  "Only users with role {3} can post.").format(
+						formatdate(self.posting_date), formatdate(frozen_till),
+						self.company, modifier_role or "Accounts Manager"))
+
+	def validate_currency(self):
+		if not self.currency:
+			return
+		party_type, party = super().get_party()
+		if not party_type or not party:
+			return
+		super().validate_currency()
 
 	def validate_items(self):
 		"""Each row must reference a submitted, in-hand cheque of this company/currency.
