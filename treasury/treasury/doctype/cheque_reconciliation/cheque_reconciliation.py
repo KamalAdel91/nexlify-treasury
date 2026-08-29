@@ -3,14 +3,14 @@
 
 import frappe
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
-from erpnext.accounts.utils import get_account_currency
+from erpnext.accounts.utils import get_account_currency, get_fiscal_years
+from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate
 from frappe import _
-from frappe.model.document import Document
-from frappe.utils import flt, getdate
+from frappe.utils import flt, formatdate, getdate
 
 
-class ChequeReconciliation(Document):
+class ChequeReconciliation(AccountsController):
 	def on_trash(self):
 		from treasury.treasury.utils.ledger import delete_voucher_ledger_entries
 		delete_voucher_ledger_entries(self)
@@ -22,7 +22,54 @@ class ChequeReconciliation(Document):
 	"""
 
 	def validate(self):
+		self.set_missing_values()
+		self._validate_frozen_accounting()
+		self.validate_currency()
 		self.gl_preview = self._gl_preview()
+
+	def set_missing_values(self):
+		"""Called by validate: fill posting_date for tests."""
+		if frappe.in_test and not self.posting_date:
+			self.posting_date = frappe.utils.today()
+
+	def _validate_frozen_accounting(self):
+		"""Prevent posting to periods already closed (mirrors ERPNext Accounts Settings)."""
+		if not self.company or not self.posting_date:
+			return
+		frozen_till = frappe.db.get_value("Company", self.company, "accounts_frozen_till_date")
+		if not frozen_till:
+			return
+		if getdate(self.posting_date) <= getdate(frozen_till):
+			modifier_role = frappe.db.get_value(
+				"Accounts Settings", "Accounts Settings", "frozen_accounts_modifier"
+			)
+			user_roles = frappe.get_roles()
+			if (
+				frozen_till
+				and modifier_role not in user_roles
+				and frappe.session.user != "Administrator"
+			):
+				frappe.throw(
+					_(
+						"Posting date {0} falls before Accounts Frozen Till {1} for Company {2}."
+						" Only users with role {3} can post."
+					).format(
+						formatdate(self.posting_date),
+						formatdate(frozen_till),
+						self.company,
+						modifier_role or "Accounts Manager",
+					)
+				)
+
+	def validate_currency(self):
+		"""Reuse the parent logic while skipping the party check (we are not Sales/Purchase)."""
+		if not self.currency:
+			return
+		# The parent uses get_party() which returns (None, None) for us
+		party_type, party = super().get_party()
+		if not party_type or not party:
+			return
+		super().validate_currency()
 
 	def on_submit(self):
 		make_gl_entries(self._gl_rows(), merge_entries=False)
