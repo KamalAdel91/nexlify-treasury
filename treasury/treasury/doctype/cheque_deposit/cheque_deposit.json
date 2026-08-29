@@ -1,0 +1,183 @@
+{
+	"actions": [],
+	"allow_bulk_edit": 1,
+	"allow_rename": 1,
+	"autoname": "naming_series:",
+	"creation": "2026-08-28 10:00:00.000000",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"section_break_basic",
+		"amended_from",
+		"naming_series",
+		"column_break_dates",
+		"posting_date",
+		"column_break_company",
+		"company",
+		"section_break_bank",
+		"bank",
+		"deposit_account",
+		"currency",
+		"total_amount",
+		"section_break_items",
+		"cheque_deposit_items"
+	],
+	"fields": [
+		{
+			"fieldname": "section_break_basic",
+			"fieldtype": "Section Break"
+		},
+		{
+			"fieldname": "amended_from",
+			"fieldtype": "Link",
+			"label": "Amended From",
+			"no_copy": 1,
+			"options": "Cheque Deposit",
+			"print_hide": 1,
+			"read_only": 1,
+			"search_index": 1
+		},
+		{
+			"description": "Generates e.g. CHQ-DEP-2026-0001 (year auto-inserted)",
+			"fieldname": "naming_series",
+			"fieldtype": "Select",
+			"in_list_view": 1,
+			"label": "Series",
+			"no_copy": 1,
+			"options": "CHQ-DEP-.YYYY.-",
+			"print_hide": 1,
+			"reqd": 1,
+			"set_only_once": 1
+		},
+		{
+			"fieldname": "column_break_dates",
+			"fieldtype": "Column Break"
+		},
+		{
+			"fieldname": "posting_date",
+			"fieldtype": "Datetime",
+			"label": "Posting Date",
+			"reqd": 1
+		},
+		{
+			"fieldname": "column_break_company",
+			"fieldtype": "Column Break"
+		},
+		{
+			"fieldname": "company",
+			"fieldtype": "Link",
+			"in_list_view": 1,
+			"label": "Company",
+			"options": "Company",
+			"reqd": 1
+		},
+		{
+			"fieldname": "section_break_bank",
+			"fieldtype": "Section Break",
+			"label": "Deposit to Bank"
+		},
+		{
+			"description": "The bank account where these cheques are being deposited. Stored on this document as a reference and will be used at the final (Reconciliation) stage.",
+			"fieldname": "bank",
+			"fieldtype": "Link",
+			"in_list_view": 1,
+			"label": "Bank",
+			"options": "Bank Account",
+			"reqd": 1
+		},
+		{
+			"description": "Informational — the GL account behind the selected Bank Account. Not used in this GL entry.",
+			"fieldname": "deposit_account",
+			"fieldtype": "Link",
+			"fetch_from": "bank.account",
+			"label": "Bank GL Account",
+			"options": "Account",
+			"read_only": 1
+		},
+		{
+			"fieldname": "currency",
+			"fieldtype": "Link",
+			"label": "Currency",
+			"options": "Currency",
+			"reqd": 1
+		},
+		{
+			"fieldname": "total_amount",
+			"fieldtype": "Currency",
+			"label": "Total Amount",
+			"read_only": 1
+		},
+		{
+			"fieldname": "section_break_items",
+			"fieldtype": "Section Break",
+			"label": "Cheques"
+		},
+		{
+			"description": "Select one or more received cheques (status: Cheques In Hand) to deposit together in one bank deposit",
+			"fieldname": "cheque_deposit_items",
+			"fieldtype": "Table",
+			"label": "Cheque Deposit Items",
+			"options": "Cheque Deposit Items",
+			"reqd": 1
+		}
+	],
+	"grid_page_length": 50,
+	"index_web_pages_for_search": 1,
+	"is_submittable": 1,
+	"links": [],
+	"modified": "2026-08-28 10:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Treasury",
+	"name": "Cheque Deposit",
+	"naming_rule": "By \"Naming Series\" field",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"amend": 1,
+			"cancel": 1,
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "System Manager",
+			"share": 1,
+			"submit": 1,
+			"write": 1
+		},
+		{
+			"amend": 1,
+			"cancel": 1,
+			"create": 1,
+			"delete": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "Accounts Manager",
+			"share": 1,
+			"submit": 1,
+			"write": 1
+		},
+		{
+			"create": 1,
+			"email": 1,
+			"export": 1,
+			"print": 1,
+			"read": 1,
+			"report": 1,
+			"role": "Accounts User",
+			"share": 1,
+			"submit": 1,
+			"write": 1
+		}
+	],
+	"row_format": "Dynamic",
+	"rows_threshold_for_grid_search": 20,
+	"sort_field": "creation",
+	"sort_order": "DESC",
+	"states": []
+}

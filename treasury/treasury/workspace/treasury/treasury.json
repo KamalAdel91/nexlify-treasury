@@ -1,0 +1,137 @@
+{
+ "app": "treasury",
+ "creation": "2026-08-29 00:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "landmark",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Treasury",
+ "module": "Treasury",
+ "name": "Treasury",
+ "parent_page": "",
+ "public": 1,
+ "restrict_to_domain": "",
+ "sequence_id": 1.0,
+ "title": "Treasury",
+ "type": "Workspace",
+ "content": "[{\"id\":\"hdr_treasury\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Treasury &amp; Cash Management</b></span>\",\"col\":12}},{\"id\":\"card_treasury\",\"type\":\"card\",\"data\":{\"card_name\":\"Treasury\",\"col\":4}},{\"id\":\"card_cheques\",\"type\":\"card\",\"data\":{\"card_name\":\"Cheques\",\"col\":4}},{\"id\":\"card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":4}}]",
+ "links": [
+  {
+   "type": "Card Break",
+   "label": "Treasury",
+   "link_count": 1,
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0
+  },
+  {
+   "type": "Link",
+   "label": "Treasury Transactions",
+   "link_to": "Treasury Transactions",
+   "link_type": "DocType",
+   "onboard": 1,
+   "hidden": 0,
+   "is_query_report": 0,
+   "dependencies": ""
+  },
+  {
+   "type": "Card Break",
+   "label": "Cheques",
+   "link_count": 5,
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0
+  },
+  {
+   "type": "Link",
+   "label": "All Cheques",
+   "link_to": "All Cheques",
+   "link_type": "DocType",
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0,
+   "dependencies": ""
+  },
+  {
+   "type": "Link",
+   "label": "Cheque Receipt",
+   "link_to": "Cheque Receipt",
+   "link_type": "DocType",
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0,
+   "dependencies": ""
+  },
+  {
+   "type": "Link",
+   "label": "Cheque Deposit",
+   "link_to": "Cheque Deposit",
+   "link_type": "DocType",
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0,
+   "dependencies": ""
+  },
+  {
+   "type": "Link",
+   "label": "Cheque Payment",
+   "link_to": "Cheque Payment",
+   "link_type": "DocType",
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0,
+   "dependencies": ""
+  },
+  {
+   "type": "Link",
+   "label": "Cheque Reconciliation",
+   "link_to": "Cheque Reconciliation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0,
+   "dependencies": ""
+  },
+  {
+   "type": "Card Break",
+   "label": "Settings",
+   "link_count": 2,
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0
+  },
+  {
+   "type": "Link",
+   "label": "Cheque Settings",
+   "link_to": "Cheque Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0,
+   "dependencies": ""
+  },
+  {
+   "type": "Link",
+   "label": "Treasury Settings",
+   "link_to": "Treasury Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "hidden": 0,
+   "is_query_report": 0,
+   "dependencies": ""
+  }
+ ],
+ "charts": [],
+ "custom_blocks": [],
+ "number_cards": [],
+ "quick_lists": [],
+ "shortcuts": [],
+ "roles": [],
+ "indicator_color": "",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "modified": "2026-08-29 00:00:00.000000"
+}

@@ -1,0 +1,204 @@
+{
+  "name": "Treasury Transactions",
+  "module": "Treasury",
+  "autoname": "format:TRS-{YYYY}-{#####}",
+  "is_submittable": 1,
+  "track_changes": 1,
+  "fields": [
+    {
+      "fieldname": "type_section",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldname": "transaction_type",
+      "fieldtype": "Select",
+      "label": "Transaction Type",
+      "options": "Money In\nMoney Out\nTransfer",
+      "reqd": 1,
+      "in_list_view": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "company",
+      "fieldtype": "Link",
+      "label": "Company",
+      "options": "Company",
+      "reqd": 1,
+      "in_standard_filter": 1
+    },
+    {
+      "fieldname": "posting_date",
+      "fieldtype": "Date",
+      "label": "Posting Date",
+      "reqd": 1,
+      "default": "Today"
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "amount_section",
+      "fieldtype": "Section Break",
+      "label": "Amount & Account"
+    },
+    {
+      "fieldname": "amount",
+      "fieldtype": "Currency",
+      "label": "Amount",
+      "reqd": 1,
+      "read_only": 1,
+      "options": "Company:company:default_currency"
+    },
+    {
+      "fieldname": "account",
+      "fieldtype": "Link",
+      "label": "Cash / Bank Account",
+      "options": "Account",
+      "depends_on": "eval:doc.transaction_type!=='Transfer'"
+    },
+    {
+      "fieldname": "column_break_2",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "cost_center",
+      "fieldtype": "Link",
+      "label": "Cost Center",
+      "options": "Cost Center"
+    },
+    {
+      "fieldname": "transfer_section",
+      "fieldtype": "Section Break",
+      "label": "Transfer Accounts",
+      "depends_on": "eval:doc.transaction_type===\"Transfer\""
+    },
+    {
+      "fieldname": "from_account",
+      "fieldtype": "Link",
+      "label": "From",
+      "options": "Account"
+    },
+    {
+      "fieldname": "column_break_3",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "to_account",
+      "fieldtype": "Link",
+      "label": "To",
+      "options": "Account"
+    },
+    {
+      "fieldname": "party_section",
+      "fieldtype": "Section Break",
+      "label": "Party",
+      "depends_on": "eval:doc.transaction_type!==\"Transfer\""
+    },
+    {
+      "fieldname": "without_party",
+      "fieldtype": "Check",
+      "label": "Without Party"
+        },
+    {
+      "fieldname": "party_type",
+      "fieldtype": "Link",
+      "label": "Party Type",
+      "options": "Party Type",
+      "depends_on": "eval:!doc.without_party && doc.transaction_type!==\"Transfer\""
+    },
+    {
+      "fieldname": "column_break_4",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "party",
+      "fieldtype": "Dynamic Link",
+      "label": "Party",
+      "options": "party_type",
+      "depends_on": "eval:!doc.without_party && doc.transaction_type!==\"Transfer\"",
+      "mandatory_depends_on": "eval:!doc.without_party && doc.party_type && doc.party_type!=\"Other\" && doc.transaction_type!==\"Transfer\""
+    },
+    {
+      "fieldname": "party_name",
+      "fieldtype": "Data",
+      "label": "Party Name",
+      "read_only": 1,
+      "depends_on": "eval:!doc.without_party && doc.transaction_type!==\"Transfer\""
+    },
+    {
+      "fieldname": "items_section",
+      "fieldtype": "Section Break",
+      "label": "Voucher Allocation (Match & Apply)",
+      "depends_on": "eval:!doc.without_party && doc.transaction_type!==\"Transfer\""
+    },
+    {
+      "fieldname": "items",
+      "fieldtype": "Table",
+      "label": "Vouchers",
+      "options": "Treasury Transaction Item"
+    },
+    {
+      "fieldname": "adjust_section",
+      "fieldtype": "Section Break",
+      "label": "Transactions",
+      "depends_on": "eval:doc.transaction_type!==\"Transfer\""
+    },
+    {
+      "fieldname": "transactions",
+      "fieldtype": "Table",
+      "label": "Transactions",
+      "options": "Treasury Transaction Line"
+    },
+    {
+      "fieldname": "total_section",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldname": "total_allocated",
+      "fieldtype": "Currency",
+      "label": "Total Allocated",
+      "read_only": 1,
+      "options": "Company:company:default_currency"
+    },
+    {
+      "fieldname": "column_break_5",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "difference_amount",
+      "fieldtype": "Currency",
+      "label": "Difference",
+      "read_only": 1,
+      "options": "Company:company:default_currency"
+    },
+    {
+      "fieldname": "remarks",
+      "fieldtype": "Small Text",
+      "label": "Remarks"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1,
+      "submit": 1,
+      "cancel": 1,
+      "amend": 1
+    },
+    {
+      "role": "Accounts User",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "submit": 1,
+      "cancel": 1,
+      "amend": 1
+    }
+  ],
+  "doctype": "DocType",
+  "naming_rule": "Expression"
+}

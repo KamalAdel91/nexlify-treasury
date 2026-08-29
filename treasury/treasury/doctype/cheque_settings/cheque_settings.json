@@ -1,0 +1,148 @@
+{
+ "actions": [],
+ "creation": "2026-08-28 23:06:41.470284",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "settings_section",
+  "accounts",
+  "validation_section",
+  "validation_help",
+  "enforce_single_currency",
+  "prevent_partial_deposit",
+  "reconcile_require_exact_bank",
+  "prevent_negative_gl",
+  "enforce_cheque_date_chain",
+  "column_break_elfn",
+  "block_rcn_without_deposit",
+  "freeze_linked_deposit",
+  "validate_duplicate_rcn",
+  "warn_party_mismatch",
+  "warn_reference_mismatch"
+ ],
+ "fields": [
+  {
+   "fieldname": "settings_section",
+   "fieldtype": "Section Break",
+   "label": "Company Accounts"
+  },
+  {
+   "description": "One row per company: the accounts used by the Cheque documents",
+   "fieldname": "accounts",
+   "fieldtype": "Table",
+   "label": "Company Accounts",
+   "options": "Cheque Settings Account",
+   "reqd": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "validation_section",
+   "fieldtype": "Section Break",
+   "label": "Validation Rules"
+  },
+  {
+   "default": "Each rule can be: None (disabled), Warn (notify only), or Stop (block).",
+   "fieldname": "validation_help",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "default": "Stop",
+   "fieldname": "enforce_single_currency",
+   "fieldtype": "Select",
+   "label": "Restrict cheque deposits & reconciliations to a single currency",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Stop",
+   "fieldname": "prevent_partial_deposit",
+   "fieldtype": "Select",
+   "label": "Block partial allocation of a cheque at reconciliation (full amount required)",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Stop",
+   "fieldname": "prevent_negative_gl",
+   "fieldtype": "Select",
+   "label": "Block negative / over-limit GL entries",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Stop",
+   "fieldname": "reconcile_require_exact_bank",
+   "fieldtype": "Select",
+   "label": "Require reconciliation bank to match the cheque bank",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Stop",
+   "fieldname": "enforce_cheque_date_chain",
+   "fieldtype": "Select",
+   "label": "Enforce chronological order: cheque date <= deposit date <= transaction date",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Stop",
+   "fieldname": "block_rcn_without_deposit",
+   "fieldtype": "Select",
+   "label": "Block reconciling a cheque that has no deposit",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Stop",
+   "fieldname": "freeze_linked_deposit",
+   "fieldtype": "Select",
+   "label": "Prevent cancelling/deleting a deposit that has a reconciliation",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Stop",
+   "fieldname": "validate_duplicate_rcn",
+   "fieldtype": "Select",
+   "label": "Prevent same cheque in two reconciliations",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Warn",
+   "fieldname": "warn_party_mismatch",
+   "fieldtype": "Select",
+   "label": "Warn when transaction party differs from cheque party",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "Warn",
+   "fieldname": "warn_reference_mismatch",
+   "fieldtype": "Select",
+   "label": "Warn when transaction reference number differs from cheque number",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "fieldname": "column_break_elfn",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-28 23:15:18.667089",
+ "modified_by": "Administrator",
+ "module": "Treasury",
+ "name": "Cheque Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

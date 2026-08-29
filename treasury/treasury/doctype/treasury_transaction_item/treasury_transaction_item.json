@@ -1,0 +1,56 @@
+{
+  "name": "Treasury Transaction Item",
+  "module": "Treasury",
+  "istable": 1,
+  "fields": [
+    {
+      "fieldname": "doc_type",
+      "fieldtype": "Select",
+      "label": "Document Type",
+      "options": "Purchase Invoice\nSales Invoice\nExpense Claim\nJournal Entry",
+      "in_list_view": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "voucher_no",
+      "fieldtype": "Dynamic Link",
+      "label": "Voucher No",
+      "options": "doc_type",
+      "in_list_view": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "party",
+      "fieldtype": "Data",
+      "label": "Party",
+      "in_list_view": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "grand_total",
+      "fieldtype": "Currency",
+      "label": "Grand Total",
+      "in_list_view": 1,
+      "read_only": 1,
+      "options": "currency"
+    },
+    {
+      "fieldname": "outstanding_amount",
+      "fieldtype": "Currency",
+      "label": "Outstanding",
+      "in_list_view": 1,
+      "read_only": 1,
+      "options": "currency"
+    },
+    {
+      "fieldname": "allocated_amount",
+      "fieldtype": "Currency",
+      "label": "Allocated",
+      "in_list_view": 1,
+      "reqd": 1,
+      "options": "currency"
+    }
+  ],
+  "permissions": [],
+  "doctype": "DocType"
+}

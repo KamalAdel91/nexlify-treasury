@@ -1,0 +1,85 @@
+{
+ "actions": [],
+ "creation": "2026-08-28 23:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "settings_section",
+  "accounts",
+  "funds_section",
+  "funds_help",
+  "require_party_for_funds",
+  "allow_negative_difference",
+  "default_transaction_cost_center"
+ ],
+ "fields": [
+  {
+   "fieldname": "settings_section",
+   "fieldtype": "Section Break",
+   "label": "Company Funds Accounts"
+  },
+  {
+   "description": "One row per company: default accounts used by Treasury Transactions",
+   "fieldname": "accounts",
+   "fieldtype": "Table",
+   "label": "Company Funds Accounts",
+   "options": "Treasury Settings Detail"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "funds_section",
+   "fieldtype": "Section Break",
+   "label": "Funds Policy"
+  },
+  {
+   "default": "Policies for Treasury Transactions (Money In / Money Out / Transfer)",
+   "fieldname": "funds_help",
+   "fieldtype": "Small Text",
+   "read_only": 1
+  },
+  {
+   "default": "Warn",
+   "fieldname": "require_party_for_funds",
+   "fieldtype": "Select",
+   "label": "Require a Party for Treasury Transactions (non-transfer)",
+   "options": "None\nWarn\nStop"
+  },
+  {
+   "default": "0",
+   "description": "Allow the difference amount to be negative (money out larger than allocated). Not recommended.",
+   "fieldname": "allow_negative_difference",
+   "fieldtype": "Check",
+   "label": "Allow Negative Difference"
+  },
+  {
+   "fieldname": "default_transaction_cost_center",
+   "fieldtype": "Link",
+   "label": "Default Cost Center (all companies)",
+   "options": "Cost Center"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-28 23:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Treasury",
+ "name": "Treasury Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

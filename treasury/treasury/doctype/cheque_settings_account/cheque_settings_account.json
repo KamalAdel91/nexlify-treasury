@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "creation": "2026-08-27 22:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "cheque_receiving_account",
+  "cheque_issuing_account",
+  "under_collection_account",
+  "write_off_account"
+ ],
+ "fields": [
+  {
+   "columns": 4,
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "columns": 4,
+   "description": "Debit side of the GL entry created when a Cheque Receipt is submitted for this company",
+   "fieldname": "cheque_receiving_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Cheque Receiving Account",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "columns": 4,
+   "description": "Credit side of the GL entry created when a Cheque Payment (issued cheque) is submitted for this company",
+   "fieldname": "cheque_issuing_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Cheque Issuing Account",
+   "options": "Account"
+  },
+  {
+   "columns": 4,
+   "description": "Debit side of the GL entry created when a Cheque Deposit is submitted (closing the Cheque Receiving Account)",
+   "fieldname": "under_collection_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Under Collection Account",
+   "options": "Account"
+  },
+  {
+   "columns": 4,
+   "description": "Used by the Write Off Difference button on Cheque Receipt",
+   "fieldname": "write_off_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Write Off Account",
+   "options": "Account"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-27 23:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Treasury",
+ "name": "Cheque Settings Account",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

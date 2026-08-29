@@ -1,0 +1,334 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-08-28 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_basic",
+  "amended_from",
+  "naming_series",
+  "column_break_dates",
+  "posting_date",
+  "column_break_company",
+  "company",
+  "section_break_booking",
+  "without_party",
+  "currency",
+  "cheque_amount",
+  "difference_amount",
+  "party_type",
+  "party",
+  "party_name",
+  "account",
+  "column_break_cheque",
+  "cheque_no",
+  "bank",
+  "cheque_date",
+  "cost_center",
+  "section_break_items",
+  "cheque_payment_items",
+  "section_break_deductions",
+  "deductions",
+  "section_break_status",
+  "cheque_status",
+  "bank_transaction",
+  "clearance_date",
+  "all_cheques"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_basic",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Cheque Payment",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "description": "Generates e.g. CHQ-PAY-2026-0001 (year auto-inserted)",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Series",
+   "no_copy": 1,
+   "options": "CHQ-PAY-.YYYY.-",
+   "print_hide": 1,
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "column_break_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Datetime",
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_company",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_booking",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "description": "Tick to book this cheque directly against an Account instead of a Party",
+   "fieldname": "without_party",
+   "fieldtype": "Check",
+   "label": "Without Party"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cheque_amount",
+   "fieldtype": "Currency",
+   "label": "Cheque Amount",
+   "reqd": 1,
+   "description": "The face value of the cheque being issued"
+  },
+  {
+   "description": "Difference = Cheque Amount - (Allocated Amount - Deductions). Must be zero before save.",
+   "fieldname": "difference_amount",
+   "fieldtype": "Currency",
+   "label": "Difference Amount",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:!doc.without_party",
+   "fieldname": "party_type",
+   "fieldtype": "Link",
+   "label": "Party Type",
+   "mandatory_depends_on": "eval:!doc.without_party",
+   "options": "DocType",
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "bold": 1,
+   "depends_on": "eval:!doc.without_party",
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "in_standard_filter": 1,
+   "label": "Party",
+   "mandatory_depends_on": "eval:!doc.without_party",
+   "options": "party_type"
+  },
+  {
+   "allow_on_submit": 1,
+   "bold": 1,
+   "depends_on": "eval:!doc.without_party",
+   "fieldname": "party_name",
+   "fieldtype": "Data",
+   "in_global_search": 1,
+   "in_standard_filter": 1,
+   "label": "Party Name"
+  },
+  {
+   "bold": 1,
+   "depends_on": "eval:doc.without_party",
+   "fieldname": "account",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Account",
+   "mandatory_depends_on": "eval:doc.without_party",
+   "options": "Account"
+  },
+  {
+   "fieldname": "column_break_cheque",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cheque_no",
+   "fieldtype": "Data",
+   "label": "Cheque No",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bank",
+   "fieldtype": "Link",
+   "label": "Bank",
+   "options": "Bank Account",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "My chequebook bank. Stored on this document and will be used at the bank-clearance (Reconciliation) stage."
+  },
+  {
+   "fieldname": "cheque_date",
+   "fieldtype": "Date",
+   "label": "Cheque Date",
+   "reqd": 1
+  },
+  {
+   "description": "Applied to all GL rows (required for Profit and Loss accounts). Defaults to the Company Cost Center.",
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "section_break_items",
+   "fieldtype": "Section Break",
+   "label": "Allocate Against"
+  },
+  {
+   "description": "Allocate the cheque amount against due documents of the selected Party (e.g. Purchase Invoices)",
+   "fieldname": "cheque_payment_items",
+   "fieldtype": "Table",
+   "options": "Cheque Payment Items",
+   "depends_on": "eval:!doc.without_party"
+  },
+  {
+   "fieldname": "section_break_deductions",
+   "fieldtype": "Section Break",
+   "label": "Deductions"
+  },
+  {
+   "description": "Amounts withheld from the cheque proceeds. Each row posts a Debit.",
+   "fieldname": "deductions",
+   "fieldtype": "Table",
+   "options": "Cheque Receipt Deduction",
+   "reqd": 0
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "Issued",
+   "description": "Issued = cheque handed to the party. Later stages added in a future phase.",
+   "fieldname": "cheque_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cheque Status",
+   "no_copy": 1,
+   "options": "Issued\nReconciled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_transaction",
+   "fieldtype": "Link",
+   "label": "Bank Transaction",
+   "options": "Bank Transaction",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1,
+   "in_standard_filter": 1,
+   "description": "Set automatically when this cheque is reconciled against a Bank Transaction."
+  },
+  {
+   "fieldname": "clearance_date",
+   "fieldtype": "Date",
+   "label": "Clearance Date",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1,
+   "description": "The date the cheque amount was confirmed in the bank statement (set by Bank Reconciliation)."
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "reconciliation_doc",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Cheque Reconciliation",
+   "no_copy": 1,
+   "options": "Cheque Reconciliation",
+   "read_only": 1,
+   "description": "Set automatically when this cheque is reconciled via Bank Reconciliation."
+  },
+  {
+   "fieldname": "all_cheques",
+   "fieldtype": "Link",
+   "label": "All Cheques",
+   "options": "All Cheques",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1,
+   "hidden": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "module": "Treasury",
+ "name": "Cheque Payment",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "is_submittable": 1,
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ]
+}
