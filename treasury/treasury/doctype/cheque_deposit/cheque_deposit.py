@@ -216,42 +216,35 @@ class ChequeDeposit(Document):
 @frappe.whitelist()
 def get_pending_cheques(company, currency=None):
 	"""Submitted Cheque Receipts still in 'Cheques In Hand' and not reserved
-	by any other active Cheque Deposit."""
+	by any other active Cheque Deposit — resolved in a single query."""
 
 	if not frappe.has_permission("Cheque Receipt", "read"):
 		frappe.throw(_("Not permitted to read Cheque Receipt"), frappe.PermissionError)
-	filters = {"docstatus": 1, "company": company, "cheque_status": CHEQUE_STATUS_IN_HAND}
-	if currency:
-		filters["currency"] = currency
 
-	cheques = frappe.get_all(
-		"Cheque Receipt",
-		filters=filters,
-		fields=[
-			"name",
-			"party_type",
-			"party",
-			"party_name",
-			"cheque_no",
-			"drawn_bank",
-			"cheque_date",
-			"cheque_amount",
-		],
-		order_by="posting_date asc",
-	)
-	pending = []
-	for ch in cheques:
-		conflict = frappe.db.sql(
-			"""select d.name
-				from `tabCheque Deposit` d
-				join `tabCheque Deposit Items` i on i.parent = d.name
-				where i.cheque_receipt = %s and d.docstatus < 2
-				limit 1""",
-			ch.name,
+	cr = frappe.qb.DocType("Cheque Receipt")
+	cdi = frappe.qb.DocType("Cheque Deposit Items")
+	cd = frappe.qb.DocType("Cheque Deposit")
+
+	query = (
+		frappe.qb.from_(cr)
+		.left_join(cdi)
+		.on((cdi.cheque_receipt == cr.name) & (cdi.parenttype == "Cheque Deposit"))
+		.left_join(cd)
+		.on((cd.name == cdi.parent) & (cd.docstatus < 2))
+		.select(
+			cr.name, cr.party_type, cr.party, cr.party_name,
+			cr.cheque_no, cr.drawn_bank, cr.cheque_date, cr.cheque_amount,
 		)
-		if not conflict:
-			pending.append(ch)
-	return pending
+		.where(cr.docstatus == 1)
+		.where(cr.company == company)
+		.where(cr.cheque_status == CHEQUE_STATUS_IN_HAND)
+		.where(cd.name.isnull())  # no active deposit reservation
+		.orderby(cr.posting_date, cr.creation)
+	)
+	if currency:
+		query = query.where(cr.currency == currency)
+
+	return query.run(as_dict=True)
 
 
 @frappe.whitelist()
