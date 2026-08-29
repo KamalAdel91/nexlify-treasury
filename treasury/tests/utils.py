@@ -18,7 +18,7 @@ def _group_like(fragment, company):
 	)
 
 
-def get_or_create_account(account_name, parent, company, account_type=None):
+def get_or_create_account(account_name, parent, company, account_type=None, root_type=None):
 	abbr = frappe.get_value("Company", company, "abbr")
 	name = f"{account_name} - {abbr}"
 	if not frappe.db.exists("Account", name):
@@ -30,7 +30,7 @@ def get_or_create_account(account_name, parent, company, account_type=None):
 				"parent_account": parent,
 				"account_type": account_type or "",
 				"is_group": 0,
-				"root_type": "Asset",
+				"root_type": root_type or "Asset",
 			}
 		).insert(ignore_permissions=True)
 	return name
@@ -78,6 +78,38 @@ class TreasuryFixtures:
 		self.under_collection = get_or_create_account("Under Collection", ca_group, self.company)
 		self.income = _get_or_create_income_account(self.company)
 		self.bank_gl = get_or_create_account("Treasury Test Bank", bank_group, self.company, account_type="Bank")
+
+		# Payment Entry fixtures
+		expense_group = _group_like("Expenses", self.company)
+		self.expense_account = get_or_create_account("Treasury Test Expense", expense_group, self.company, root_type="Expense")
+		liability_group = _group_like("Current Liabilities", self.company)
+		self.payable_account = get_or_create_account("Treasury Test Payable", liability_group, self.company, root_type="Liability")
+		self.paid_from = self.bank_gl  # for Pay: debit bank
+		self.paid_to = self.payable_account  # for Pay: credit payable / for Receive: debit = bank
+		self.income_account = self.income  # alias for Receive revenue account
+
+		# Cost center
+		if not frappe.db.exists("Cost Center", "Main - " + abbr):
+			cc_name = "Main - " + abbr
+			root = frappe.get_value("Cost Center", {"company": self.company, "is_group": 1}, "name")
+			frappe.get_doc({
+				"doctype": "Cost Center",
+				"cost_center_name": cc_name,
+				"company": self.company,
+				"parent_cost_center": root,
+				"is_group": 0,
+			}).insert(ignore_permissions=True)
+		self.cost_center = frappe.get_value("Cost Center", {"company": self.company, "is_group": 0}, "name")
+
+		# Mode of Payment (Cash for test simplicity)
+		self.mode_of_payment = frappe.get_value("Mode of Payment", {"enabled": 1}, "name")
+		if not self.mode_of_payment:
+			self.mode_of_payment = frappe.get_doc({
+				"doctype": "Mode of Payment",
+				"mode_of_payment": "Treasury Test Cash",
+				"enabled": 1,
+				"type": "Cash",
+			}).insert(ignore_permissions=True).name
 
 		bank_name = f"Treasury Test Bank - {abbr}"
 		if not frappe.db.exists("Bank", bank_name):

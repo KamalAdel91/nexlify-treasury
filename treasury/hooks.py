@@ -43,7 +43,9 @@ app_include_js = "/assets/treasury/js/treasury_bank_recon.js"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+    "Payment Entry": "public/js/payment_entry.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -86,7 +88,7 @@ app_include_js = "/assets/treasury/js/treasury_bank_recon.js"
 # ------------
 
 # before_install = "treasury.install.before_install"
-# after_install = "treasury.install.after_install"
+after_install = "treasury.treasury.setup.install._ensure_fields"
 
 # Uninstallation
 # ------------
@@ -193,6 +195,11 @@ app_include_js = "/assets/treasury/js/treasury_bank_recon.js"
 # override_doctype_dashboards = {
 # 	"Task": "treasury.task.get_dashboard_data"
 # }
+
+# ── Treasury Payment Entry override (multi-expense / multi-revenue) ──
+override_doctype_class = {
+    "Payment Entry": "treasury.treasury.overrides.payment_entry.TreasuryPaymentEntry",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #
@@ -308,6 +315,7 @@ ignore_links_on_delete = ["All Cheques"]
 # DocType meta (Edit DocType validation rejects that combination); the index is
 # maintained at the DB layer and rebuilt here whenever schema sync drops it.
 after_migrate = [
-	"treasury.patches.add_unique_index_cheque_reconciliation.ensure_unique_index"
+	"treasury.patches.add_unique_index_cheque_reconciliation.ensure_unique_index",
+	"treasury.treasury.setup.install.after_migrate",
 ]
 
