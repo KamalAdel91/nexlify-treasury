@@ -105,15 +105,33 @@ def validate_items(self, items_fieldname, allowed_vouchers, voucher_party_fields
 		return 0
 
 	allowed = allowed_vouchers.get(self.party_type or "", ())
+	items = self.get(items_fieldname) or []
+	if not items:
+		return 0
+
+	# ── batch-load all referenced vouchers (1 query instead of N get_doc) ──
+	refs_by_type = {}
+	for item in items:
+		refs_by_type.setdefault(item.doc_type, []).append(item.voucher_no)
+	loaded = {}
+	for doc_type, names in refs_by_type.items():
+		for ref in frappe.get_all(
+			doc_type,
+			filters={"name": ("in", names)},
+			fields=["name", "docstatus", "company", "grand_total", "outstanding_amount",
+			        "party_type", "party", "customer", "supplier", "employee"],
+		):
+			loaded[(doc_type, ref.name)] = ref
+
 	total_allocated = 0
 
-	for idx, item in enumerate(self.get(items_fieldname) or [], start=1):
+	for idx, item in enumerate(items, start=1):
 		row_no = _("Row #{0}").format(idx)
 		if item.doc_type not in allowed:
 			frappe.throw(_("{0}: {1} is not valid for {2}").format(
 				row_no, frappe.bold(item.doc_type), _(self.party_type)))
 
-		ref = frappe.get_doc(item.doc_type, item.voucher_no)
+		ref = loaded.get((item.doc_type, item.voucher_no))
 		if not ref or ref.docstatus != 1:
 			frappe.throw(_("{0}: {1} {2} must be an existing submitted document").format(
 				row_no, _(item.doc_type), frappe.bold(item.voucher_no)))
@@ -166,7 +184,7 @@ def validate_items(self, items_fieldname, allowed_vouchers, voucher_party_fields
 					row_no, frappe.bold(item.deduction_account)))
 			if wa.company != self.company:
 				frappe.throw(_("{0}: {1} belongs to another company ({2})").format(
-					row_no, frappe.bold(item.deduction_account), frappe.bold(wa.company)))
+				row_no, frappe.bold(item.deduction_account), frappe.bold(wa.company)))
 		total_allocated += flt(item.allocated_amount)
 	return total_allocated
 

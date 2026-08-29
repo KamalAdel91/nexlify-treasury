@@ -175,6 +175,7 @@
    "label": "Bank",
    "options": "Bank Account",
    "reqd": 1,
+   "index": 1,
    "in_list_view": 1,
    "description": "My chequebook bank. Stored on this document and will be used at the bank-clearance (Reconciliation) stage."
   },

@@ -1,93 +1,94 @@
 {
-	"actions": [],
-	"allow_bulk_edit": 1,
-	"creation": "2026-08-28 10:00:00.000000",
-	"doctype": "DocType",
-	"editable_grid": 1,
-	"engine": "InnoDB",
-	"field_order": [
-		"cheque_receipt",
-		"party_type",
-		"party",
-		"party_name",
-		"cheque_no",
-		"drawn_bank",
-		"amount"
-	],
-	"fields": [
-		{
-			"columns": 4,
-			"fieldname": "cheque_receipt",
-			"fieldtype": "Link",
-			"in_list_view": 1,
-			"label": "Cheque Receipt",
-			"options": "Cheque Receipt",
-			"reqd": 1
-		},
-		{
-			"fieldname": "party_type",
-			"fieldtype": "Data",
-			"label": "Party Type",
-			"read_only": 1,
-			"fetch_from": "cheque_receipt.party_type"
-		},
-		{
-			"fieldname": "party",
-			"fieldtype": "Data",
-			"label": "Party",
-			"read_only": 1,
-			"fetch_from": "cheque_receipt.party"
-		},
-		{
-			"columns": 2,
-			"fieldname": "party_name",
-			"fieldtype": "Data",
-			"in_list_view": 1,
-			"label": "Party Name",
-			"read_only": 1,
-			"fetch_from": "cheque_receipt.party_name"
-		},
-		{
-			"columns": 2,
-			"fieldname": "cheque_no",
-			"fieldtype": "Data",
-			"in_list_view": 1,
-			"label": "Cheque No",
-			"read_only": 1,
-			"fetch_from": "cheque_receipt.cheque_no"
-		},
-		{
-			"columns": 2,
-			"fieldname": "drawn_bank",
-			"fieldtype": "Data",
-			"in_list_view": 1,
-			"label": "Drawn Bank",
-			"read_only": 1,
-			"fetch_from": "cheque_receipt.drawn_bank"
-		},
-		{
-			"columns": 2,
-			"fieldname": "amount",
-			"fieldtype": "Currency",
-			"in_list_view": 1,
-			"label": "Amount",
-			"read_only": 1,
-			"fetch_from": "cheque_receipt.cheque_amount"
-		}
-	],
-	"grid_page_length": 50,
-	"index_web_pages_for_search": 1,
-	"istable": 1,
-	"links": [],
-	"modified": "2026-08-28 10:00:00.000000",
-	"modified_by": "Administrator",
-	"module": "Treasury",
-	"name": "Cheque Deposit Items",
-	"owner": "Administrator",
-	"permissions": [],
-	"row_format": "Dynamic",
-	"rows_threshold_for_grid_search": 20,
-	"sort_field": "creation",
-	"sort_order": "DESC",
-	"states": []
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "creation": "2026-08-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "cheque_receipt",
+  "party_type",
+  "party",
+  "party_name",
+  "cheque_no",
+  "drawn_bank",
+  "amount"
+ ],
+ "fields": [
+  {
+   "columns": 4,
+   "fieldname": "cheque_receipt",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "index": 1,
+   "label": "Cheque Receipt",
+   "options": "Cheque Receipt",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "cheque_receipt.party_type",
+   "fieldname": "party_type",
+   "fieldtype": "Data",
+   "label": "Party Type",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "cheque_receipt.party",
+   "fieldname": "party",
+   "fieldtype": "Data",
+   "label": "Party",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "cheque_receipt.party_name",
+   "fieldname": "party_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Party Name",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "cheque_receipt.cheque_no",
+   "fieldname": "cheque_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Cheque No",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "cheque_receipt.drawn_bank",
+   "fieldname": "drawn_bank",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Drawn Bank",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fetch_from": "cheque_receipt.cheque_amount",
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-28 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Treasury",
+ "name": "Cheque Deposit Items",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
 }

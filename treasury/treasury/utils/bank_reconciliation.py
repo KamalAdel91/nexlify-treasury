@@ -86,9 +86,19 @@ def get_matching_queries_hook(
 	try:
 		if _ours_selected(document_types):
 			if flt(transaction.deposit) > 0:
-				queries.append(_get_receipt_matching_query(transaction, exact_match))
+				q = _get_receipt_matching_query(transaction, exact_match)
+				if from_date:
+					q = q.where(cr.posting_date >= from_date)
+				if to_date:
+					q = q.where(cr.posting_date <= to_date)
+				queries.append(q)
 			if flt(transaction.withdrawal) > 0:
-				queries.append(_get_payment_matching_query(transaction, exact_match))
+				q = _get_payment_matching_query(transaction, exact_match)
+				if from_date:
+					q = q.where(cp.posting_date >= from_date)
+				if to_date:
+					q = q.where(cp.posting_date <= to_date)
+				queries.append(q)
 	except Exception:
 		# write to a dedicated file: the Error Log table silently drops
 		# oversized records ("Data too long for column 'method'")
