@@ -11,6 +11,7 @@ from erpnext.setup.utils import get_exchange_rate
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint, flt, formatdate, getdate, nowdate
+from treasury.treasury.utils.cheque_shared import resolve_party_name
 
 
 PARTY_ACCOUNT_TYPE_MAP = {
@@ -82,147 +83,18 @@ class ChequeReceipt(Document):
 		self.currency = self.currency or frappe.db.get_value("Company", self.company, "default_currency")
 
 	def validate_items(self):
-		"""Validate allocation rows and auto-fetch Grand Total / Outstanding."""
-		if self.without_party:
-			self.set("table_wgxh", [])
-			return
+		"""Validate allocation rows (shared)."""
+		from treasury.treasury.utils.cheque_shared import validate_items
+		return validate_items(self, "table_wgxh", PARTY_TYPE_VOUCHERS, VOUCHER_PARTY_FIELDS)
 
-		allowed = PARTY_TYPE_VOUCHERS.get(self.party_type or "", ())
-		total_allocated = 0
 
-		for idx, item in enumerate(self.get("table_wgxh") or [], start=1):
-			row_no = _("Row #{0}").format(idx)
-
-			if item.doc_type not in allowed:
-				frappe.throw(_("{0}: {1} is not valid for {2}").format(row_no, frappe.bold(item.doc_type), _(self.party_type)))
-
-			ref = frappe.get_doc(item.doc_type, item.voucher_no)
-			if not ref or ref.docstatus != 1:
-				frappe.throw(_("{0}: {1} {2} must be an existing submitted document").format(row_no, _(item.doc_type), frappe.bold(item.voucher_no)))
-
-			if ref.company != self.company:
-				frappe.throw(_("{0}: {1} belongs to another company ({2})").format(row_no, frappe.bold(item.voucher_no), frappe.bold(ref.company)))
-
-			field_name = VOUCHER_PARTY_FIELDS.get(item.doc_type, "party")
-			if field_name == "party":
-				owner_ok = (ref.party_type == self.party_type and ref.party == self.party)
-			elif field_name == "customer":
-				owner_ok = (ref.customer == self.party and self.party_type == "Customer")
-			elif field_name == "supplier":
-				owner_ok = (ref.supplier == self.party and self.party_type == "Supplier")
-			else:
-				owner_ok = (ref.get(field_name) == self.party)
-			if not owner_ok:
-				frappe.throw(_("{0}: {1} {2} does not belong to {3}").format(row_no, _(item.doc_type), frappe.bold(item.voucher_no), frappe.bold(self.party)))
-
-			item.grand_total = flt(getattr(ref, "grand_total", 0) or 0)
-			item.outstanding = flt(getattr(ref, "outstanding_amount", 0) or 0)
-
-			if flt(item.allocated_amount) <= 0:
-				frappe.throw(_("{0}: Allocated Amount must be greater than zero").format(row_no))
-
-			# Payment Entry style: the allocated amount is what settles the voucher
-			if frappe.db.has_column(item.doc_type, "outstanding_amount") and flt(item.allocated_amount) > item.outstanding + 0.005:
-				frappe.throw(
-					_("{0}: Allocated ({1}) exceeds Outstanding ({2}) for {3} {4}").format(
-						row_no,
-						frappe.utils.fmt_money(item.allocated_amount, currency=self.currency),
-						frappe.utils.fmt_money(item.outstanding, currency=self.currency),
-						_(item.doc_type),
-						frappe.bold(item.voucher_no),
-					)
-				)
-
-			# Generic per-row deduction: checkbox drives Amount + Account
-			if not item.apply_deduction:
-				item.deduction_amount = 0
-				item.deduction_account = None
-			else:
-				if flt(item.deduction_amount or 0) <= 0:
-					frappe.throw(_("{0}: Deduction Amount is mandatory when Apply Deduction is checked").format(row_no))
-				if not item.deduction_account:
-					frappe.throw(_("{0}: Deduction Account is mandatory when Apply Deduction is checked").format(row_no))
-				wa = frappe.db.get_value(
-					"Account", item.deduction_account, ["company", "is_group", "disabled", "account_type"], as_dict=True
-				)
-				if not wa:
-					frappe.throw(_("{0}: Deduction Account {1} does not exist").format(row_no, frappe.bold(item.deduction_account)))
-				if wa.disabled or wa.is_group:
-					frappe.throw(_("{0}: {1} must be an active leaf account").format(row_no, frappe.bold(item.deduction_account)))
-				if wa.company != self.company:
-					frappe.throw(
-						_("{0}: {1} belongs to another company ({2})").format(
-							row_no, frappe.bold(item.deduction_account), frappe.bold(wa.company)
-						)
-					)
-
-			total_allocated += flt(item.allocated_amount)
-
-		return total_allocated
 
 	def validate_deductions(self):
-		"""Validate deduction rows and enforce: Cheque = Allocated - WHT - Deductions."""
-		# Validate each collection-level deduction row FIRST (specific errors win)
-		for idx, ded in enumerate(self.get("deductions") or [], start=1):
-			row_no = _("Row #{0}").format(idx)
-			acct = frappe.db.get_value(
-				"Account", ded.account, ["company", "is_group", "disabled", "account_type", "report_type"], as_dict=True
-			)
-			if not acct:
-				frappe.throw(_("{0}: Account {1} does not exist").format(row_no, frappe.bold(ded.account)))
-			if acct.disabled or acct.is_group:
-				frappe.throw(_("{0}: {1} must be an active leaf account").format(row_no, frappe.bold(ded.account)))
-			if acct.company != self.company:
-				frappe.throw(
-					_("{0}: {1} belongs to another company ({2})").format(
-						row_no, frappe.bold(ded.account), frappe.bold(acct.company)
-					)
-				)
-			if acct.account_type in ("Receivable", "Payable"):
-				frappe.throw(
-					_("{0}: Deductions cannot be booked on a {1} control account ({2})").format(
-						row_no, acct.account_type, frappe.bold(ded.account)
-					)
-				)
-			if acct.report_type == "Profit and Loss" and not (
-				ded.get("cost_center") or self.cost_center or get_default_cost_center(self.company)
-			):
-				frappe.throw(
-					_("{0}: Cost Center is required for Profit and Loss account {1}. Set it in the Deduction row, in the Cheque Receipt, or as the Company default.").format(
-						row_no, frappe.bold(ded.account)
-					)
-				)
-			if flt(ded.amount) <= 0:
-				frappe.throw(_("{0}: Deduction Amount must be greater than zero").format(row_no))
+		"""Validate deductions (shared)."""
+		from treasury.treasury.utils.cheque_shared import validate_deductions
+		return validate_deductions(self, "table_wgxh", "Cheque Receipt")
 
-		if self.without_party:
-			# No allocations in this mode; deductions simply add debit legs.
-			self.difference_amount = 0
-		else:
-			items = self.get("table_wgxh") or []
-			row_deductions = sum(flt(it.deduction_amount or 0) for it in items if it.apply_deduction)
-			collection_deductions = sum(flt(d.amount or 0) for d in self.get("deductions") or [])
-			total_allocated = sum(flt(it.allocated_amount) for it in items)
-			cheque_amount = flt(self.cheque_amount)
 
-			# difference = (Allocated - WHT - Deductions) - Cheque  -> must be ~0
-			self.difference_amount = flt((total_allocated - row_deductions - collection_deductions) - cheque_amount, 2)
-
-			if abs(self.difference_amount) > 0.005:
-				frappe.throw(
-					_(
-						"Cheque Amount must equal Allocated Amount - WHT - Deductions.\n"
-						"Allocated ({0}) - WHT ({1}) - Deductions ({2}) = {3} but Cheque Amount is {4}.\n"
-						"Difference: {5}"
-					).format(
-						frappe.utils.fmt_money(total_allocated, currency=self.currency),
-						frappe.utils.fmt_money(row_deductions, currency=self.currency),
-						frappe.utils.fmt_money(collection_deductions, currency=self.currency),
-						frappe.utils.fmt_money(total_allocated - row_deductions - collection_deductions, currency=self.currency),
-						frappe.utils.fmt_money(cheque_amount, currency=self.currency),
-						frappe.utils.fmt_money(self.difference_amount, currency=self.currency),
-					)
-				)
 
 
 	def _get_receiving_account(self):
