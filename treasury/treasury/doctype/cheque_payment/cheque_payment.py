@@ -7,9 +7,9 @@ import frappe
 from erpnext import get_default_cost_center
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_account_currency
+from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate
 from frappe import _
-from frappe.model.document import Document
 from frappe.utils import cint, flt, formatdate, getdate, nowdate
 from treasury.treasury.utils.cheque_shared import resolve_party_name
 
@@ -39,23 +39,42 @@ VOUCHER_PARTY_ACCOUNT_FIELD = {
 }
 
 
-def resolve_party_name(party_type, party):
-	_party_name = "title" if party_type == "Shareholder" else party_type.lower() + "_name"
-	if frappe.db.has_column(party_type, _party_name):
-		return frappe.db.get_value(party_type, party, _party_name)
-	return frappe.db.get_value(party_type, party, "name")
-
-
-class ChequePayment(Document):
+class ChequePayment(AccountsController):
 	def on_trash(self):
 		from treasury.treasury.utils.ledger import delete_voucher_ledger_entries
 		delete_voucher_ledger_entries(self)
 	def validate(self):
 		self.validate_booking_mode()
 		self.set_missing_values()
+		self._validate_frozen_accounting()
+		self.validate_currency()
 		self.validate_basic_data()
 		self.validate_items()
 		self.validate_deductions()
+
+	def _validate_frozen_accounting(self):
+		if not self.company or not self.posting_date:
+			return
+		frozen_till = frappe.db.get_value("Company", self.company, "accounts_frozen_till_date")
+		if not frozen_till:
+			return
+		if getdate(self.posting_date) <= getdate(frozen_till):
+			modifier_role = frappe.db.get_value(
+				"Accounts Settings", "Accounts Settings", "frozen_accounts_modifier")
+			if modifier_role not in frappe.get_roles() and frappe.session.user != "Administrator":
+				frappe.throw(
+					_("Posting date {0} falls before Accounts Frozen Till {1} for Company {2}. "
+					  "Only users with role {3} can post.").format(
+						formatdate(self.posting_date), formatdate(frozen_till),
+						self.company, modifier_role or "Accounts Manager"))
+
+	def validate_currency(self):
+		if not self.currency:
+			return
+		party_type, party = super().get_party()
+		if not party_type or not party:
+			return
+		super().validate_currency()
 
 	def validate_booking_mode(self):
 		"""Book either against a Party or directly against an Account."""
