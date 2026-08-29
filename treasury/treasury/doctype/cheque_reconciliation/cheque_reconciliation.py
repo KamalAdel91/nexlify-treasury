@@ -200,3 +200,17 @@ class ChequeReconciliation(AccountsController):
 			bt.update_allocated_amount()
 			bt.set_status()
 			bt.save()
+
+
+def on_doctype_update():
+	"""Re-assert the DB-level UNIQUE index on ``cheque`` after every DocType save.
+
+	``DocType.on_update`` runs ``frappe.db.updatedb`` (a full schema sync)
+	before ``run_module_method("on_doctype_update")`` is called.  Because the
+	meta no longer declares ``cheque`` as unique (a Dynamic Link cannot be
+	unique in meta), that sync drops the hand-added UNIQUE index — so it is
+	rebuilt here, on every save from the Edit DocType form or any other path.
+	"""
+	from treasury.patches.add_unique_index_cheque_reconciliation import ensure_unique_index
+
+	ensure_unique_index()

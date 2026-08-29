@@ -1,6 +1,6 @@
 {
  "actions": [],
- "autoname": "field:source_doc",
+ "autoname": "format:{source_doc}",
  "creation": "2026-08-28 20:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -49,8 +49,9 @@
   },
   {
    "fieldname": "source_doctype",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Source DocType",
+   "options": "DocType",
    "read_only": 1,
    "hidden": 1
   },
@@ -175,7 +176,7 @@
  "modified_by": "Administrator",
  "module": "Treasury",
  "name": "All Cheques",
- "naming_rule": "By fieldname",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
