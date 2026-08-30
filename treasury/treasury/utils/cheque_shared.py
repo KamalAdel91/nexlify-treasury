@@ -218,7 +218,32 @@ def validate_items(self, items_fieldname, allowed_vouchers, voucher_party_fields
 	return total_allocated
 
 
-def validate_deductions(self, items_fieldname, doctype_label):
+def resolve_difference_account(company):
+	"""Resolve the account a cheque surplus (cheque > allocations) is booked on.
+
+	Uses Company.book_advance_payments_in_separate_party_account to pick
+	between Default Advance Received Account and Default Receivable Account,
+	falling back to the receivable account when the advance account is unset.
+	"""
+	book_separate = cint(
+		frappe.db.get_value("Company", company, "book_advance_payments_in_separate_party_account")
+	)
+	field = "default_advance_received_account" if book_separate else "default_receivable_account"
+	account = frappe.db.get_value("Company", company, field)
+	if not account and book_separate:
+		account = frappe.db.get_value("Company", company, "default_receivable_account")
+	if not account:
+		frappe.throw(_(
+			"No {0} is set on Company {1}. Set it to allow cheque surpluses to be "
+			"booked as advances."
+		).format(
+			frappe.bold(_("Default Advance Received / Receivable Account")),
+			frappe.bold(company),
+		))
+	return account
+
+
+def validate_deductions(self, items_fieldname, doctype_label, allow_cheque_surplus=False):
 	for idx, ded in enumerate(self.get("deductions") or [], start=1):
 		row_no = _("Row #{0}").format(idx)
 		acct = frappe.db.get_value("Account", ded.account,
@@ -251,7 +276,17 @@ def validate_deductions(self, items_fieldname, doctype_label):
 		cheque_amount = flt(self.cheque_amount)
 		self.difference_amount = flt(
 			(total_allocated - row_deductions - collection_deductions) - cheque_amount, 2)
-		if abs(self.difference_amount) > 0.005:
+		if self.difference_amount < -0.005 and allow_cheque_surplus:
+			# Cheque is LARGER than what was allocated: accept it and book the
+			# surplus as an on-account/advance amount on the party's account.
+			self._difference_account = resolve_difference_account(self.company)
+			frappe.msgprint(_(
+				"Cheque surplus of {0} will be booked as an advance on {1}."
+			).format(
+				frappe.utils.fmt_money(-self.difference_amount, currency=self.currency),
+				frappe.bold(self._difference_account),
+			))
+		elif abs(self.difference_amount) > 0.005:
 			frappe.throw(_(
 				"Cheque Amount ({0}) must equal Allocated ({1})"
 				" minus Row Deductions ({2}) minus Deductions ({3})."

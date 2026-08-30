@@ -11,7 +11,7 @@ from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate
 from frappe import _
 from frappe.utils import cint, flt, formatdate, getdate, nowdate
-from treasury.treasury.utils.cheque_shared import resolve_party_name
+from treasury.treasury.utils.cheque_shared import resolve_difference_account, resolve_party_name
 
 
 PARTY_ACCOUNT_TYPE_MAP = {
@@ -112,9 +112,9 @@ class ChequeReceipt(AccountsController):
 
 
 	def validate_deductions(self):
-		"""Validate deductions (shared)."""
+		"""Validate deductions (shared); receipts accept cheque surplus as advance."""
 		from treasury.treasury.utils.cheque_shared import validate_deductions
-		return validate_deductions(self, "table_wgxh", "Cheque Receipt")
+		return validate_deductions(self, "table_wgxh", "Cheque Receipt", allow_cheque_surplus=True)
 
 
 
@@ -278,6 +278,26 @@ class ChequeReceipt(AccountsController):
 			credit.against_account = receiving
 			credit.user_remark = _("Allocation against {0} {1}").format(_(item.doc_type), item.voucher_no)
 			rows.append(credit)
+
+		# Cr surplus (cheque > allocations) as an on-account advance
+		surplus = -flt(self.difference_amount) * rate
+		if surplus > 0.005:
+			adv_account = (
+				getattr(self, "_difference_account", None)
+				or resolve_difference_account(self.company)
+			)
+			adv = frappe._dict({**base})
+			adv.account = adv_account
+			adv.debit = 0
+			adv.credit = surplus
+			adv.debit_in_account_currency = 0
+			adv.credit_in_account_currency = surplus
+			adv.account_currency = get_account_currency(adv_account)
+			adv.party_type = self.party_type
+			adv.party = self.party
+			adv.against_account = receiving
+			adv.user_remark = _("Cheque surplus booked as advance")
+			rows.append(adv)
 
 		return rows
 

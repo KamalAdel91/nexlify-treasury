@@ -19,6 +19,7 @@
   "currency",
   "cheque_amount",
   "difference_amount",
+  "difference_account",
   "party_type",
   "party",
   "party_name",
@@ -208,12 +209,21 @@
    "reqd": 0
   },
   {
-   "description": "Difference = Cheque Amount - (Allocated Amount - Deductions). Must be zero before save.",
+   "description": "Positive = Allocated exceeds Cheque (rejected). Negative = Cheque surplus, parked on the Difference Account.",
    "fieldname": "difference_amount",
    "fieldtype": "Currency",
    "label": "Difference Amount",
    "no_copy": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "difference_account",
+   "fieldtype": "Link",
+   "label": "Difference Account",
+   "options": "Account",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Surplus (cheque amount exceeding allocations) is parked here: the Company Default Advance Received Account when Book Advance Payments in Separate Party Account is enabled, otherwise the Default Receivable Account."
   },
   {
    "fieldname": "section_break_status",
