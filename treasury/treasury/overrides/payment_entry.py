@@ -28,7 +28,27 @@ class TreasuryPaymentEntry(PaymentEntry):
     # ---------------------------------------------------------------
 
     def is_multi_expense(self):
-        return cint(self.get("multi_expense")) == 1
+        return self._treasury_multi_expense_enabled() and cint(self.get("multi_expense")) == 1
+
+    def _treasury_multi_expense_enabled(self):
+        """True when the Treasury Settings checkbox enables this feature.
+
+        When the checkbox is OFF every override in this class falls back to
+        the standard ERPNext Payment Entry (i.e. the feature is "not present").
+        """
+        try:
+            return (
+                cint(
+                    frappe.db.get_single_value(
+                        "Treasury Settings", "enable_multi_expense_payment_entry"
+                    )
+                )
+                == 1
+            )
+        except Exception:
+            # The single doctype/field may not exist yet on pre-migration
+            # installs — keep the existing behaviour (feature enabled).
+            return True
 
     # ---------------------------------------------------------------
     # validate
@@ -184,6 +204,8 @@ class TreasuryPaymentEntry(PaymentEntry):
     # ---------------------------------------------------------------
 
     def build_gl_map(self):
+        if not self.is_multi_expense():
+            return super().build_gl_map()
         if self.payment_type in ("Receive", "Pay") and not self.get("party_account_field"):
             self.setup_party_account_field()
         self.set_transaction_currency_and_rate()
@@ -267,6 +289,9 @@ class TreasuryPaymentEntry(PaymentEntry):
         gl_entries.append(self.get_gl_dict(gl_entry, item=self))
 
     def make_gl_entries(self, cancel=0, adv_adj=0):
+        if not self.is_multi_expense():
+            super().make_gl_entries(cancel=cancel, adv_adj=adv_adj)
+            return
         gl_entries = self.build_gl_map()
         gl_entries = process_gl_map(gl_entries, merge_entries=False)
         make_gl_entries(gl_entries, cancel=cancel, adv_adj=adv_adj, merge_entries=False)

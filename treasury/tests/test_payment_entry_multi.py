@@ -9,7 +9,7 @@ Covers:
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from treasury.tests.utils import (
     TreasuryFixtures,
@@ -377,3 +377,102 @@ class TestMultiExpenseAccountLinkQuery(FrappeTestCase):
         self.assertIsNone(frappe.db.exists("DocType", "is_group"))
         meta = frappe.get_meta("Treasury Payment Entry Account")
         self.assertEqual(meta.get_field("account").options, "Account")
+
+class TestMultiExpenseToggle(FrappeTestCase):
+    """T7 — The Treasury Settings master switch fully enables/disables the
+    multi-expense / multi-revenue Payment Entry feature.
+
+    When the checkbox is OFF the feature is inert: a `multi_expense` draft
+    without a party must fail exactly like standard ERPNext (Party Type is
+    mandatory), `is_multi_expense()` returns False, and no treasury GL can be
+    built from the child table.
+    """
+
+    SETTING = "enable_multi_expense_payment_entry"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        frappe.set_user("Administrator")
+        cls.fx = TreasuryFixtures()
+        cls.company = cls.fx.company
+
+    def setUp(self):
+        self.orig = cint(frappe.db.get_single_value("Treasury Settings", self.SETTING))
+
+    def tearDown(self):
+        # Restore the master switch so other tests are unaffected.
+        frappe.db.set_single_value("Treasury Settings", self.SETTING, self.orig)
+
+    def _toggle(self, on):
+        frappe.db.set_single_value("Treasury Settings", self.SETTING, 1 if on else 0)
+
+    def _no_party_multi_pay(self):
+        pe = frappe.get_doc(
+            {
+                "doctype": "Payment Entry",
+                "payment_type": "Pay",
+                "company": self.company,
+                "posting_date": frappe.utils.today(),
+                "cost_center": self.fx.cost_center,
+                "mode_of_payment": self.fx.mode_of_payment,
+                "paid_from": self.fx.paid_from,
+                "paid_amount": 0,
+                "received_amount": 0,
+                "reference_no": "Toggle-Test",
+                "reference_date": frappe.utils.today(),
+                "multi_expense": 1,
+            }
+        )
+        _add_multi_line(pe, self.fx.expense_account, 100)
+        return pe
+
+    def test_disabled_rejects_party_less_multi_pay(self):
+        self._toggle(False)
+        pe = self._no_party_multi_pay()
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            pe.save()
+
+    def test_disabled_rejects_party_less_multi_receive(self):
+        self._toggle(False)
+        pe = frappe.get_doc(
+            {
+                "doctype": "Payment Entry",
+                "payment_type": "Receive",
+                "company": self.company,
+                "posting_date": frappe.utils.today(),
+                "cost_center": self.fx.cost_center,
+                "mode_of_payment": self.fx.mode_of_payment,
+                "paid_to": self.fx.paid_from,
+                "paid_amount": 0,
+                "received_amount": 0,
+                "reference_no": "Toggle-Recv",
+                "reference_date": frappe.utils.today(),
+                "multi_expense": 1,
+            }
+        )
+        _add_multi_line(pe, self.fx.income_account, 250)
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            pe.save()
+
+    def test_disabled_is_multi_expense_returns_false(self):
+        self._toggle(False)
+        pe = self._no_party_multi_pay()
+        self.assertFalse(pe.is_multi_expense())
+
+    def test_disabled_treasury_gl_builder_noop(self):
+        self._toggle(False)
+        pe = self._no_party_multi_pay()
+        gl = []
+        pe.make_treasury_expense_gl_entries(gl)
+        self.assertEqual(gl, [])  # no treasury rows when the feature is off
+
+    def test_enabled_still_allows_multi_pay(self):
+        self._toggle(True)
+        pe = self._no_party_multi_pay()
+        self.assertTrue(pe.is_multi_expense())
+        pe.save()
+        self.assertEqual(pe.docstatus, 0)
+        self.assertEqual(flt(pe.paid_amount), 100)
+        safe_cancel_delete("Payment Entry", pe.name)
+

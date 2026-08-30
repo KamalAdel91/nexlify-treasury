@@ -7,6 +7,7 @@
  "field_order": [
   "settings_section",
   "accounts",
+  "enable_multi_expense_payment_entry",
   "funds_section",
   "funds_help",
   "require_party_for_funds",
@@ -25,6 +26,13 @@
    "fieldtype": "Table",
    "label": "Company Funds Accounts",
    "options": "Treasury Settings Detail"
+  },
+  {
+   "default": "1",
+   "description": "When enabled, Payment Entry gains Multi-Expense / Multi-Revenue mode (a child table of expense/revenue lines posted without a party). When disabled, Payment Entry behaves exactly like standard ERPNext — the treasury grid, party relaxation and mandatory-field exemptions are removed.",
+   "fieldname": "enable_multi_expense_payment_entry",
+   "fieldtype": "Check",
+   "label": "Enable Multi-Expense / Multi-Revenue Payment Entry"
   },
   {
    "collapsible": 1,

@@ -20,13 +20,13 @@ frappe.ui.form.on("Payment Entry", {
     multi_expense(frm) {
         _apply_multi_visibility(frm);
         _update_labels(frm);
-        if (frm.doc.multi_expense) {
+        if (_treasury_feature_enabled(frm) && frm.doc.multi_expense) {
             _recalc_total(frm);
         }
     },
 
     before_save(frm) {
-        if (frm.doc.multi_expense) {
+        if (_treasury_feature_enabled(frm) && frm.doc.multi_expense) {
             frm.doc.party_type = "";
             frm.doc.party = "";
         }
@@ -37,6 +37,7 @@ frappe.ui.form.on("Payment Entry", {
 
 frappe.ui.form.on("Treasury Payment Entry Account", {
     account(frm, cdt, cdn) {
+        if (!_treasury_feature_enabled(frm)) return;
         const row = frappe.get_doc(cdt, cdn);
         if (row.account && !row.cost_center && frm.doc.cost_center) {
             frappe.model.set_value(cdt, cdn, "cost_center", frm.doc.cost_center);
@@ -44,10 +45,12 @@ frappe.ui.form.on("Treasury Payment Entry Account", {
     },
 
     amount(frm) {
+        if (!_treasury_feature_enabled(frm)) return;
         _recalc_total(frm);
     },
 
     treasury_expense_items_remove(frm) {
+        if (!_treasury_feature_enabled(frm)) return;
         _recalc_total(frm);
     },
 });
@@ -55,7 +58,27 @@ frappe.ui.form.on("Treasury Payment Entry Account", {
 // ── helpers ──
 
 function _treasury_multi_refresh(frm) {
-    // Set account filter for new rows based on payment type.
+    // Load the master switch from Treasury Settings (async), then apply
+    // visibility and account filters. Until the value resolves we keep the
+    // current behaviour (feature treated as enabled) so nothing breaks.
+    frappe.db
+        .get_single_value("Treasury Settings", "enable_multi_expense_payment_entry")
+        .then((value) => {
+            frm._treasury_multi_enabled = cint(value) === 1;
+            _setup_account_query(frm);
+            _apply_multi_visibility(frm);
+            _update_labels(frm);
+        });
+}
+
+function _treasury_feature_enabled(frm) {
+    // Before the async settings read resolves, keep current behaviour.
+    return frm._treasury_multi_enabled === undefined ? true : frm._treasury_multi_enabled;
+}
+
+function _setup_account_query(frm) {
+    // Never attach the account filter query when the feature is disabled.
+    if (!_treasury_feature_enabled(frm)) return;
     if (frm.fields_dict.treasury_expense_items) {
         frm.fields_dict.treasury_expense_items.grid.get_field("account").get_query =
             function () {
@@ -74,20 +97,27 @@ function _treasury_multi_refresh(frm) {
                 return { filters };
             };
     }
-    _apply_multi_visibility(frm);
-    _update_labels(frm);
 }
 
 function _apply_multi_visibility(frm) {
-    const on = frm.doc.multi_expense == 1
+    const enabled = _treasury_feature_enabled(frm);
+    const on = enabled
+        && frm.doc.multi_expense == 1
         && frm.doc.payment_type !== "Internal Transfer";
 
     // Toggle multi-expense checkbox visibility
     if (frm.fields_dict.multi_expense) {
         frm.set_df_property(
             "multi_expense", "hidden",
-            frm.doc.payment_type === "Internal Transfer" ? 1 : 0
+            (!enabled || frm.doc.payment_type === "Internal Transfer") ? 1 : 0
         );
+    }
+
+    // Feature switched OFF: behave exactly like standard ERPNext. Drop any
+    // stale multi_expense flag on draft docs so the server-side overrides
+    // never engage, and hide the whole treasury UI (party stays required).
+    if (!enabled && frm.doc.docstatus === 0 && frm.doc.multi_expense) {
+        frm.set_value("multi_expense", 0);
     }
 
     const party_fields = [
