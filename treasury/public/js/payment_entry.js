@@ -59,34 +59,20 @@ function _treasury_multi_refresh(frm) {
     if (frm.fields_dict.treasury_expense_items) {
         frm.fields_dict.treasury_expense_items.grid.get_field("account").get_query =
             function () {
-                if (!frm.doc.company) return { filters: [] };
-                const filters = { company: frm.doc.company, is_group: 0 };
+                if (!frm.doc.company) return { filters: {} };
+                const filters = {
+                    company: frm.doc.company,
+                    is_group: 0,
+                };
                 if (frm.doc.payment_type === "Pay") {
-                    return { filters: [
-                        ["root_type", "=", "Expense"],
-                        ["account_type", "!=", "Tax"],
-                        ...Object.entries(filters),
-                    ]};
+                    filters.root_type = "Expense";
+                    filters.account_type = ["!=", "Tax"];
+                } else {
+                    // Receive → Income accounts
+                    filters.root_type = "Income";
                 }
-                // Receive → Income accounts
-                return { filters: [
-                    ["root_type", "=", "Income"],
-                    ...Object.entries(filters),
-                ]};
+                return { filters };
             };
-
-        // Allow Tax accounts for Pay via Link search
-        const orig_query = frm.fields_dict.treasury_expense_items.grid.get_field("account").get_query;
-        frm.fields_dict.treasury_expense_items.grid.get_field("account").get_query = function () {
-            if (frm.doc.payment_type !== "Pay") return orig_query.call(this);
-            return {
-                filters: [
-                    ["company", "=", frm.doc.company],
-                    ["is_group", "=", 0],
-                    ["root_type", "in", ["Expense"]],
-                ],
-            };
-        };
     }
     _apply_multi_visibility(frm);
     _update_labels(frm);

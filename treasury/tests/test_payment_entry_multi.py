@@ -326,3 +326,54 @@ class TestMultiExpenseMandatoryRelaxation(FrappeTestCase):
         self.assertEqual(pe.docstatus, 0)
         self.assertEqual(flt(pe.received_amount), 250)
         self.assertEqual(flt(pe.source_exchange_rate), 1)
+
+
+class TestMultiExpenseAccountLinkQuery(FrappeTestCase):
+    """T6 — The child-table account get_query must use safe dict filters.
+
+    Regression guard for the 'DocType is_group not found' error on Add Row
+    when payment_type = Receive: the old get_query spread Object.entries(),
+    producing 2-element filter tuples (e.g. ['is_group', 0]) which some
+    server paths interpret with 'is_group' as a *doctype*. The account link
+    query must build filters the standard way (dict) so search_link works.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        frappe.set_user("Administrator")
+        cls.fx = TreasuryFixtures()
+        cls.company = cls.fx.company
+
+    def _search(self, filters):
+        return frappe.call(
+            "frappe.desk.search.search_link",
+            doctype="Account",
+            txt="",
+            filters=filters,
+        )
+
+    def test_pay_dict_filters_search_ok(self):
+        filters = {
+            "company": self.company,
+            "is_group": 0,
+            "root_type": "Expense",
+            "account_type": ["!=", "Tax"],
+        }
+        results = self._search(filters)
+        self.assertGreaterEqual(len(results), 1)
+
+    def test_receive_dict_filters_search_ok(self):
+        filters = {
+            "company": self.company,
+            "is_group": 0,
+            "root_type": "Income",
+        }
+        results = self._search(filters)
+        self.assertGreaterEqual(len(results), 1)
+
+    def test_account_meta_hash_stays_clean(self):
+        """No leftover DocType named 'is_group' should ever be requested."""
+        self.assertIsNone(frappe.db.exists("DocType", "is_group"))
+        meta = frappe.get_meta("Treasury Payment Entry Account")
+        self.assertEqual(meta.get_field("account").options, "Account")
