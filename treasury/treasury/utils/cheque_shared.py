@@ -99,6 +99,15 @@ def get_preview_ledger(
 # ── validation helpers ─────────────────────────────────────────
 
 
+def _voucher_table_exists(doc_type):
+	"""has_column/get_all raise TableMissingError when the voucher DocType
+	table is absent (e.g. Expense Claim not installed) — treat as missing."""
+	try:
+		return frappe.db.table_exists(doc_type)
+	except Exception:
+		return False
+
+
 def validate_items(self, items_fieldname, allowed_vouchers, voucher_party_fields):
 	if self.without_party:
 		self.set(items_fieldname, [])
@@ -112,15 +121,27 @@ def validate_items(self, items_fieldname, allowed_vouchers, voucher_party_fields
 	# ── batch-load all referenced vouchers (1 query instead of N get_doc) ──
 	refs_by_type = {}
 	for item in items:
-		refs_by_type.setdefault(item.doc_type, []).append(item.voucher_no)
+		# skip doctypes that are not allowed (validated below) or whose table
+		# is missing (e.g. Expense Claim not installed) — get_all would crash
+		if item.doc_type in allowed and _voucher_table_exists(item.doc_type):
+			refs_by_type.setdefault(item.doc_type, []).append(item.voucher_no)
 	loaded = {}
 	for doc_type, names in refs_by_type.items():
-		for ref in frappe.get_all(
-			doc_type,
-			filters={"name": ("in", names)},
-			fields=["name", "docstatus", "company", "grand_total", "outstanding_amount",
-			        "party_type", "party", "customer", "supplier", "employee"],
-		):
+		# Only select columns that actually exist on the voucher table:
+		# Sales Invoice has no party_type/party (it has customer), Purchase
+		# Invoice has no customer, and the Journal Entry parent has neither
+		# party nor grand_total/outstanding_amount columns (party lives on
+		# the Journal Entry Account rows).
+		fields = ["name", "docstatus"]
+		if frappe.db.has_column(doc_type, "company"):
+			fields.append("company")
+		fields += [
+			f
+			for f in ("grand_total", "outstanding_amount", "party_type", "party",
+			          "customer", "supplier", "employee")
+			if frappe.db.has_column(doc_type, f)
+		]
+		for ref in frappe.get_all(doc_type, filters={"name": ("in", names)}, fields=fields):
 			loaded[(doc_type, ref.name)] = ref
 
 	total_allocated = 0
@@ -135,19 +156,27 @@ def validate_items(self, items_fieldname, allowed_vouchers, voucher_party_fields
 		if not ref or ref.docstatus != 1:
 			frappe.throw(_("{0}: {1} {2} must be an existing submitted document").format(
 				row_no, _(item.doc_type), frappe.bold(item.voucher_no)))
-		if ref.company != self.company:
+		if ref.get("company") != self.company:
 			frappe.throw(_("{0}: {1} belongs to another company ({2})").format(
 				row_no, frappe.bold(item.voucher_no), frappe.bold(ref.company)))
 
 		field_name = voucher_party_fields.get(item.doc_type, "party")
-		if field_name == "party":
-			owner_ok = ref.party_type == self.party_type and ref.party == self.party
+		if field_name == "party" and not frappe.db.has_column(item.doc_type, "party"):
+			# Journal Entry: party lives on the Journal Entry Account rows,
+			# not on the parent (mirrors _get_party_account's JE handling)
+			owner_ok = item.doc_type == "Journal Entry" and bool(frappe.db.get_value(
+				"Journal Entry Account",
+				{"parent": item.voucher_no, "party_type": self.party_type, "party": self.party},
+				"name",
+			))
+		elif field_name == "party":
+			owner_ok = ref.get("party_type") == self.party_type and ref.get("party") == self.party
 		elif field_name == "customer":
-			owner_ok = ref.customer == self.party and self.party_type == "Customer"
+			owner_ok = ref.get("customer") == self.party and self.party_type == "Customer"
 		elif field_name == "supplier":
-			owner_ok = ref.supplier == self.party and self.party_type == "Supplier"
+			owner_ok = ref.get("supplier") == self.party and self.party_type == "Supplier"
 		elif field_name == "employee":
-			owner_ok = ref.employee == self.party and self.party_type == "Employee"
+			owner_ok = ref.get("employee") == self.party and self.party_type == "Employee"
 		else:
 			owner_ok = ref.get(field_name) == self.party
 		if not owner_ok:

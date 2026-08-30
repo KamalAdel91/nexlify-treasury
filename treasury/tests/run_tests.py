@@ -51,10 +51,10 @@ def run_all():
     frappe.set_user("Administrator")
     frappe.flags.in_test = True
 
-    from treasury.tests import test_cheque_lifecycle, test_cheque_multicurrency, test_unreconcile, test_reconcile_race, test_payment_entry_multi  # noqa: E402
+    from treasury.tests import test_cheque_lifecycle, test_cheque_multicurrency, test_unreconcile, test_reconcile_race, test_payment_entry_multi, test_cheque_voucher_refs  # noqa: E402
 
     suite = unittest.TestSuite()
-    for module in (test_cheque_lifecycle, test_cheque_multicurrency, test_unreconcile, test_reconcile_race, test_payment_entry_multi):
+    for module in (test_cheque_lifecycle, test_cheque_multicurrency, test_unreconcile, test_reconcile_race, test_payment_entry_multi, test_cheque_voucher_refs):
         suite.addTests(unittest.defaultTestLoader.loadTestsFromModule(module))
 
     result = unittest.TextTestRunner(verbosity=2).run(suite)

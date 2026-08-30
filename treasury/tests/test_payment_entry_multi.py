@@ -52,6 +52,22 @@ def _add_multi_line(pe, account, amount, cost_center=None):
     return row
 
 
+SETTING_FIELD = "enable_multi_expense_payment_entry"
+
+
+def _set_multi_enabled(enabled, commit=False):
+    """Pin the Treasury Settings master switch explicitly.
+
+    Every multi-dependent test pins the value itself instead of trusting
+    ambient site state: this runner does not roll back between tests, so a
+    previously killed run could otherwise persist the switch as OFF and
+    poison every subsequent suite run.
+    """
+    frappe.db.set_single_value("Treasury Settings", SETTING_FIELD, 1 if enabled else 0)
+    if commit:
+        frappe.db.commit()
+
+
 class TestMultiExpensePay(FrappeTestCase):
     """Pay → expense Debt / bank Credit."""
 
@@ -59,8 +75,13 @@ class TestMultiExpensePay(FrappeTestCase):
     def setUpClass(cls):
         super().setUpClass()
         frappe.set_user("Administrator")
+        _set_multi_enabled(1)
         cls.fx = TreasuryFixtures()
         cls.company = cls.fx.company
+
+    @classmethod
+    def tearDownClass(cls):
+        _set_multi_enabled(1, commit=True)
 
     def test_pay_multi_expense_gl(self):
         pe = None
@@ -120,8 +141,13 @@ class TestMultiExpenseReceive(FrappeTestCase):
     def setUpClass(cls):
         super().setUpClass()
         frappe.set_user("Administrator")
+        _set_multi_enabled(1)
         cls.fx = TreasuryFixtures()
         cls.company = cls.fx.company
+
+    @classmethod
+    def tearDownClass(cls):
+        _set_multi_enabled(1, commit=True)
 
     def test_receive_multi_expense_gl(self):
         pe = None
@@ -241,8 +267,13 @@ class TestMultiExpenseMandatoryRelaxation(FrappeTestCase):
     def setUpClass(cls):
         super().setUpClass()
         frappe.set_user("Administrator")
+        _set_multi_enabled(1)
         cls.fx = TreasuryFixtures()
         cls.company = cls.fx.company
+
+    @classmethod
+    def tearDownClass(cls):
+        _set_multi_enabled(1, commit=True)
 
     def test_pay_multi_skips_opposite_side_mandatory(self):
         """Without multi_expense, missing paid_to must fail. With it, must pass."""
@@ -401,8 +432,10 @@ class TestMultiExpenseToggle(FrappeTestCase):
         self.orig = cint(frappe.db.get_single_value("Treasury Settings", self.SETTING))
 
     def tearDown(self):
-        # Restore the master switch so other tests are unaffected.
-        frappe.db.set_single_value("Treasury Settings", self.SETTING, self.orig)
+        # Always restore the SHIPPED DEFAULT (ON) rather than the captured
+        # value: a previously killed run may have persisted 0, and restoring
+        # the captured value would re-poison the site (and this suite).
+        _set_multi_enabled(1, commit=True)
 
     def _toggle(self, on):
         frappe.db.set_single_value("Treasury Settings", self.SETTING, 1 if on else 0)
