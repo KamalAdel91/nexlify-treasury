@@ -306,6 +306,9 @@ class ChequeReceipt(AccountsController):
 
 	def on_cancel(self):
 		make_reverse_gl_entries(voucher_type="Cheque Receipt", voucher_no=self.name)
+		# a cancelled source voids the cheque entirely - never present it as
+		# being back in hand.
+		frappe.db.set_value("Cheque Receipt", self.name, "cheque_status", "Cancelled", update_modified=False)
 
 	def before_cancel(self):
 		self.set("ignore_linked_doctypes", ["GL Entry", "Payment Ledger Entry"])

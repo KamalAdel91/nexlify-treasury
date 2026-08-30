@@ -93,6 +93,14 @@ class ChequeReconciliation(AccountsController):
 		sync_stage(self)
 		self._delink_from_bank_transaction()
 
+	def before_cancel(self):
+		# A reconciliation is always the top stage: cancelling it is a standalone
+		# action. It reverses its own GL, restores the cheque to its prior stage
+		# and un-reconciles the linked Bank Transaction (on_cancel) - it must NOT
+		# cascade into cancelling the linked Cheque Receipt / Cheque Payment.
+		self.flags.ignore_links = True
+		self.ignore_linked_doctypes = ["GL Entry", "Payment Ledger Entry"]
+
 	# --------------------------------------------------------------- helpers
 
 	def _settings_account(self, fieldname):

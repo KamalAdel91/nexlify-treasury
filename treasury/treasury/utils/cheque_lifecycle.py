@@ -86,6 +86,7 @@ STATUS_IN_HAND = "Cheques In Hand"
 STATUS_UNDER_COLLECTION = "Under Collection"
 STATUS_ISSUED = "Issued"
 STATUS_RECONCILED = "Reconciled"
+STATUS_CANCELLED = "Cancelled"
 
 INITIAL_STATUS = {
     "Cheque Receipt": STATUS_IN_HAND,
@@ -106,6 +107,13 @@ def compute_cheque_state(doctype, name):
         "bank_transaction": None,
         "clearance_date": None,
     }
+
+    # A cancelled source document voids the whole cheque: once the receipt /
+    # payment itself is cancelled the chain is dead, so the cheque must never
+    # be presented as if it were back "in hand" / "issued".
+    if doctype in SOURCE_DOCTYPES and frappe.db.get_value(doctype, name, "docstatus") == 2:
+        state["cheque_status"] = STATUS_CANCELLED
+        return state
 
     if doctype == "Cheque Receipt":
         state["cheque_deposit"] = None

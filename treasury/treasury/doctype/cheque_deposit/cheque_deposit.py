@@ -224,9 +224,10 @@ class ChequeDeposit(AccountsController):
 		sync_stage(self)
 
 	def before_cancel(self):
-		# protect a deposit that has any reconciliation (freeze_linked_deposit)
-		from treasury.treasury.utils.validations import enrich
-
+		# Standard, always-enforced rule: a deposit that has a submitted linked
+		# Cheque Reconciliation cannot be cancelled. The user can only reverse
+		# the top stage first - so the message offers a direct link to open that
+		# reconciliation, cancel/delete it, then come back here to cancel.
 		linked = frappe.db.sql(
 			"""select r.name
 				from `tabCheque Reconciliation` r
@@ -235,14 +236,18 @@ class ChequeDeposit(AccountsController):
 				limit 1""",
 			(self.name,),
 		)
-		enrich(
-			"freeze_linked_deposit",
-			bool(linked),
-			"Cheque Deposit {0} has a linked Cheque Reconciliation ({1}). Cancel that reconciliation before cancelling this deposit.".format(
-				frappe.bold(self.name), frappe.bold(linked[0][0]) if linked else "-"
-			),
-		)
-		self.set("ignore_linked_doctypes", ["GL Entry", "Payment Ledger Entry"])
+		if linked:
+			rcn_name = linked[0][0]
+			frappe.throw(
+				_(
+					"Cheque Deposit {0} is linked to Cheque Reconciliation {1}. "
+					"Cancel that reconciliation from the Reconciliation field or All Cheques "
+					"first, then cancel this deposit."
+				).format(frappe.bold(self.name), frappe.bold(rcn_name)),
+				frappe.ValidationError,
+			)
+
+		self.ignore_linked_doctypes = ["GL Entry", "Payment Ledger Entry"]
 		# Cancelling a deposit must NOT force cancelling its Cheque Receipts:
 		# on_cancel re-derives each cheque from reality (sync_stage -> back to
 		# "Cheques In Hand" and cheque_deposit = None), so the receipts' link

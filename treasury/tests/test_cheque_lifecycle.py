@@ -22,6 +22,103 @@ from treasury.tests.utils import (
 CHQ = 5000.0
 
 
+class TestCancelWorkflowRules(FrappeTestCase):
+	"""Standard (non configurable) cancel rules across the chain.
+
+	- A cancelled source cheque becomes "Cancelled" (never "Cheques In Hand").
+	- Cancelling a reconciliation un-reconciles the linked Bank Transaction
+	  and restores the cheque to its prior stage (deposit stays intact).
+	- A deposit that has a linked reconciliation cannot be cancelled: it is
+	  blocked with a message that links to the reconciliation to cancel first.
+	"""
+
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		frappe.set_user("Administrator")
+		cls.fx = TreasuryFixtures()
+		cls.party = cls.fx.party("Customer", "Treasury Test Customer")
+
+	def test_source_cancel_sets_cancelled_status(self):
+		cr = make_receipt(self.fx, CHQ, cheque_no="T3-CAN-REC", party=self.party)
+		try:
+			self.assertEqual(cr.cheque_status, "Cheques In Hand")
+			cr.cancel()
+			cr.reload()
+			self.assertEqual(cr.docstatus, 2)
+			self.assertEqual(
+				cr.cheque_status, "Cancelled",
+				"a cancelled source cheque must show Cancelled, not Cheques In Hand",
+			)
+		finally:
+			safe_cancel_delete("Cheque Receipt", cr.name)
+
+	def test_payment_source_cancel_sets_cancelled_status(self):
+		pay = make_payment(self.fx, CHQ, cheque_no="T3-CAN-PAY", party=self.fx.party("Supplier", "Treasury Test Supplier"))
+		try:
+			self.assertEqual(pay.cheque_status, "Issued")
+			pay.cancel()
+			pay.reload()
+			self.assertEqual(pay.docstatus, 2)
+			self.assertEqual(pay.cheque_status, "Cancelled")
+		finally:
+			safe_cancel_delete("Cheque Payment", pay.name)
+
+	def test_recon_cancel_unreconciles_bank_transaction(self):
+		cr = make_receipt(self.fx, CHQ, cheque_no="T3-RC-BT", party=self.party)
+		dep = bt = None
+		try:
+			dep = make_deposit(self.fx, cr.name)
+			cr.reload()
+			self.assertEqual(cr.cheque_status, "Under Collection")
+
+			bt = make_bank_transaction(self.fx, "deposit", CHQ, "T3-RC-BT-X")
+			reconcile(self.fx, bt.name, "Cheque Receipt", cr.name, CHQ)
+			rcn = frappe.db.get_value("Cheque Reconciliation", {"cheque": cr.name}, "name")
+			self.assertTrue(rcn)
+			bt.reload()
+			self.assertEqual(bt.status, "Reconciled")
+
+			# cancel the reconciliation alone -> bank transaction un-reconciled
+			frappe.get_doc("Cheque Reconciliation", rcn).cancel()
+			cr.reload()
+			self.assertEqual(cr.cheque_status, "Under Collection", "cheque returns to Under Collection")
+			self.assertEqual(gl_totals("Cheque Reconciliation", rcn)[2], 0, "recon GL reversed")
+			bt.reload()
+			self.assertEqual(bt.payment_entries, [], "bank transaction payment entry removed")
+			self.assertNotEqual(bt.status, "Reconciled", "bank transaction is un-reconciled")
+		finally:
+			rcn = frappe.db.get_value("Cheque Reconciliation", {"cheque": cr.name}, "name")
+			safe_cancel_delete("Cheque Reconciliation", rcn)
+			safe_cancel_delete("Bank Transaction", bt.name if bt else None)
+			safe_cancel_delete("Cheque Deposit", dep.name if dep else None)
+			safe_cancel_delete("Cheque Receipt", cr.name)
+
+	def test_deposit_linked_to_recon_cannot_cancel(self):
+		cr = make_receipt(self.fx, CHQ, cheque_no="T3-DEP-REC", party=self.party)
+		dep = bt = None
+		try:
+			dep = make_deposit(self.fx, cr.name)
+			bt = make_bank_transaction(self.fx, "deposit", CHQ, "T3-DEP-REC-X")
+			reconcile(self.fx, bt.name, "Cheque Receipt", cr.name, CHQ)
+			rcn = frappe.db.get_value("Cheque Reconciliation", {"cheque": cr.name}, "name")
+			self.assertTrue(rcn)
+
+			# deposit cannot be cancelled while a reconciliation is linked
+			dep.reload()
+			with self.assertRaises(frappe.ValidationError) as cm:
+				dep.cancel()
+			msg = str(cm.exception)
+			self.assertIn(rcn, msg, "message must name the linked reconciliation")
+			self.assertIn("Cancel that reconciliation", msg, "message must direct the user to cancel it first")
+		finally:
+			rcn = frappe.db.get_value("Cheque Reconciliation", {"cheque": cr.name}, "name")
+			safe_cancel_delete("Cheque Reconciliation", rcn)
+			safe_cancel_delete("Bank Transaction", bt.name if bt else None)
+			safe_cancel_delete("Cheque Deposit", dep.name if dep else None)
+			safe_cancel_delete("Cheque Receipt", cr.name)
+
+
 class TestChequeLifecycle(FrappeTestCase):
 	@classmethod
 	def setUpClass(cls):
