@@ -3,7 +3,7 @@
 
 import frappe
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
-from erpnext.accounts.utils import get_account_currency, get_fiscal_years
+from erpnext.accounts.utils import get_account_currency
 from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate
 from frappe import _

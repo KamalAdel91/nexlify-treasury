@@ -60,6 +60,13 @@ class TreasuryPaymentEntry(PaymentEntry):
             self.set_missing_ref_details(force=True)
             self.validate_payment_type()
             self.set_exchange_rate()
+            # In multi mode every amount is posted in company currency (see set_amounts,
+            # where base_*_amount == *_amount). The opposite-side account is intentionally
+            # left empty, so its rate may not be computed — default both to 1.
+            if not self.source_exchange_rate:
+                self.source_exchange_rate = 1
+            if not self.target_exchange_rate:
+                self.target_exchange_rate = 1
             self.set_amounts()
             self._validate_mandatory_fields()
             self.validate_amounts()
@@ -117,15 +124,60 @@ class TreasuryPaymentEntry(PaymentEntry):
             self.paid_to_account_type = self.paid_to_account_type or self.paid_from_account_type
 
     def _set_party_account_currency(self):
+        if self.is_multi_expense():
+            # No party in multi mode — use the BANK side currency so that
+            # set_exchange_rate() can resolve source/target rates (paid_from
+            # is empty for multi Receive and must not be looked up).
+            self.party_account_currency = (
+                self.paid_from_account_currency if self.payment_type == "Pay"
+                else self.paid_to_account_currency
+            )
+            return
         self.party_account_currency = (
             self.paid_from_account_currency if self.payment_type == "Receive"
             else self.paid_to_account_currency
         )
 
     def _validate_mandatory_fields(self):
+        if not self.get("treasury_expense_items"):
+            frappe.throw(
+                _("Please add at least one line to the Expenses/Revenues table before saving.")
+            )
         for field in ("paid_amount", "received_amount"):
             if not self.get(field):
                 frappe.throw(_("{0} is mandatory").format(_(self.meta.get_label(field))))
+
+    def _get_missing_mandatory_fields(self):
+        """Override Frappe's meta-level mandatory check for multi mode.
+
+        Frappe runs _validate_mandatory() AFTER the validate() hook and checks
+        every field with reqd=1 in the DocType meta — regardless of any
+        runtime (JS-side) relaxation. In multi mode the opposite-side account
+        is intentionally left empty (paid_to for Pay / paid_from for Receive),
+        so filter it out here; every other reqd field (amounts, rates,
+        currencies) is auto-populated by our validate() chain before this runs.
+        """
+        missing = super()._get_missing_mandatory_fields()
+        if not self.is_multi_expense():
+            return missing
+
+        # paid_amount / received_amount are auto-derived from the child table
+        # in multi mode, so they must not be flagged as missing either.
+        skip = {"paid_amount", "received_amount"}
+        if self.payment_type == "Pay":
+            skip.update([
+                "paid_to",
+                "paid_to_account_currency",
+                "target_exchange_rate",
+            ])
+        elif self.payment_type == "Receive":
+            skip.update([
+                "paid_from",
+                "paid_from_account_currency",
+                "source_exchange_rate",
+            ])
+
+        return [item for item in missing if item[0] not in skip]
 
     # ---------------------------------------------------------------
     # GL mapping (multi mode)

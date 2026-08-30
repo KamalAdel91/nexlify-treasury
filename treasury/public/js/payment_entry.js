@@ -158,6 +158,22 @@ function _apply_multi_visibility(frm) {
     if (on && frm.doc.payment_type === "Receive" && frm.fields_dict.paid_from) {
         frm.set_df_property("paid_from", "reqd", 0);
     }
+
+    // Relax mandatory fields that are auto-populated or irrelevant in multi mode
+    const relaxPay = ["paid_to_account_currency", "target_exchange_rate"];
+    const relaxReceive = ["paid_from_account_currency", "source_exchange_rate"];
+    const relaxAll = ["paid_amount", "received_amount"];  // auto-calculated from the table
+
+    for (const field of relaxPay.concat(relaxAll)) {
+        if (frm.fields_dict[field]) {
+            frm.set_df_property(field, "reqd", on && frm.doc.payment_type === "Pay" ? 0 : 1);
+        }
+    }
+    for (const field of relaxReceive.concat(relaxAll)) {
+        if (frm.fields_dict[field]) {
+            frm.set_df_property(field, "reqd", on && frm.doc.payment_type === "Receive" ? 0 : 1);
+        }
+    }
 }
 
 function _update_labels(frm) {
