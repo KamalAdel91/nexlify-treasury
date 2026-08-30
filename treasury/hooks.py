@@ -44,6 +44,7 @@ app_include_js = "/assets/treasury/js/treasury_bank_recon.js"
 # include js in doctype views
 doctype_js = {
     "Payment Entry": "public/js/payment_entry.js",
+    "Cheque Deposit": "public/js/cheque_deposit.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
