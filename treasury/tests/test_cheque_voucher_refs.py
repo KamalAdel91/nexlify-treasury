@@ -102,7 +102,7 @@ class TestVoucherBatchLoad(unittest.TestCase):
 	def test_sales_invoice_party_match_and_amounts(self):
 		row = frappe.get_all(
 			"Sales Invoice",
-			filters={"docstatus": 1},
+			filters={"docstatus": 1, "outstanding_amount": [">", 0]},
 			fields=["name", "customer", "company", "grand_total", "outstanding_amount"],
 			limit_page_length=1,
 		)

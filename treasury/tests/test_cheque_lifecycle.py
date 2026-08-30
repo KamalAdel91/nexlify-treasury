@@ -64,6 +64,12 @@ class TestChequeLifecycle(FrappeTestCase):
 			self._assert_no_gl("Cheque Deposit", dep.name)
 			cr.reload()
 			self.assertEqual(cr.cheque_status, "Cheques In Hand", "receipt status not restored on deposit cancel")
+			# Regression: cancelling a deposit must be standalone — the receipt
+			# stays SUBMITTED (no forced "cancel all linked documents" chain),
+			# and its back-link to the deposit is cleared by sync_stage.
+			self.assertEqual(cr.docstatus, 1, "receipt must not be cancelled along with the deposit")
+			self.assertFalse(cr.cheque_deposit, "receipt link to deposit must be cleared")
+
 		finally:
 			safe_cancel_delete("Cheque Deposit", dep.name if dep else None)
 			safe_cancel_delete("Cheque Receipt", cr.name)
