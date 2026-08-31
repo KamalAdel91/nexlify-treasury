@@ -26,12 +26,25 @@ class ChequeDeposit(AccountsController):
 			frappe.throw(_("Company is required"))
 		if not self.bank:
 			frappe.throw(_("Bank is required"))
-		self.currency = self.currency or frappe.db.get_value("Company", self.company, "default_currency")
+		self.currency = self._bank_account_currency()
 		self.validate_items()
 
 	def set_missing_values(self):
 		if frappe.in_test and not self.posting_date:
 			self.posting_date = frappe.utils.today()
+
+	def _bank_account_currency(self):
+		"""Currency is always the selected bank account's own currency -
+		never user-chosen. The account behind a Bank Account record can, in
+		principle, be in a different currency than the company, so this is
+		resolved live from the Bank Account -> Account link, not assumed to
+		equal the company's default currency."""
+		if not self.bank:
+			return self.currency
+		account = frappe.db.get_value("Bank Account", self.bank, "account")
+		if not account:
+			frappe.throw(_("Bank Account {0} has no linked Account").format(frappe.bold(self.bank)))
+		return get_account_currency(account)
 
 	def _validate_frozen_accounting(self):
 		if not self.company or not self.posting_date:
