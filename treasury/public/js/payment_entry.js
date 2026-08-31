@@ -99,97 +99,131 @@ function _setup_account_query(frm) {
     }
 }
 
+function _native_df(fieldname) {
+	// The Payment Entry doctype's own unmodified field definition, read
+	// fresh from meta every time - never a value we invented or a runtime
+	// copy that our own set_df_property calls may have already mutated.
+	return frappe.get_meta("Payment Entry").get_field(fieldname) || {};
+}
+
+function _restore_native(frm, fieldname, prop) {
+	const native = _native_df(fieldname);
+	frm.set_df_property(fieldname, prop, native[prop] || 0);
+}
+
 function _apply_multi_visibility(frm) {
-    const enabled = _treasury_feature_enabled(frm);
-    const on = enabled
-        && frm.doc.multi_expense == 1
-        && frm.doc.payment_type !== "Internal Transfer";
+	const enabled = _treasury_feature_enabled(frm);
+	const on = enabled
+		&& frm.doc.multi_expense == 1
+		&& frm.doc.payment_type !== "Internal Transfer";
 
-    // Toggle multi-expense checkbox visibility
-    if (frm.fields_dict.multi_expense) {
-        frm.set_df_property(
-            "multi_expense", "hidden",
-            (!enabled || frm.doc.payment_type === "Internal Transfer") ? 1 : 0
-        );
-    }
+	// Toggle multi-expense checkbox visibility
+	if (frm.fields_dict.multi_expense) {
+		frm.set_df_property(
+			"multi_expense", "hidden",
+			(!enabled || frm.doc.payment_type === "Internal Transfer") ? 1 : 0
+		);
+	}
 
-    // Feature switched OFF: behave exactly like standard ERPNext. Drop any
-    // stale multi_expense flag on draft docs so the server-side overrides
-    // never engage, and hide the whole treasury UI (party stays required).
-    if (!enabled && frm.doc.docstatus === 0 && frm.doc.multi_expense) {
-        frm.set_value("multi_expense", 0);
-    }
+	// Feature switched OFF: behave exactly like standard ERPNext. Drop any
+	// stale multi_expense flag on draft docs so the server-side overrides
+	// never engage, and hide the whole treasury UI (party stays required).
+	if (!enabled && frm.doc.docstatus === 0 && frm.doc.multi_expense) {
+		frm.set_value("multi_expense", 0);
+	}
 
-    const party_fields = [
-        "party_type", "party", "party_name",
-        "party_bank_account", "contact_person", "contact_email",
-    ];
-    const ref_sections = [
-        "section_break_14",   // Reference
-        "references",
-        "section_break_34",   // Writeoff
-        "total_allocated_amount", "base_total_allocated_amount",
-        "unallocated_amount",
-        "difference_amount", "write_off_difference_amount",
-    ];
-    const extra_sections = [
-        "deductions",
-        "taxes", "total_taxes_and_charges", "base_total_taxes_and_charges",
-        "paid_amount_after_tax", "base_paid_amount_after_tax",
-        "received_amount_after_tax", "base_received_amount_after_tax",
-    ];
+	const party_fields = [
+		"party_type", "party", "party_name",
+		"party_bank_account", "contact_person", "contact_email",
+	];
+	const ref_sections = [
+		"section_break_14",   // Reference
+		"references",
+		"section_break_34",   // Writeoff
+		"total_allocated_amount", "base_total_allocated_amount",
+		"unallocated_amount",
+		"difference_amount", "write_off_difference_amount",
+	];
+	const extra_sections = [
+		"deductions",
+		"taxes", "total_taxes_and_charges", "base_total_taxes_and_charges",
+		"paid_amount_after_tax", "base_paid_amount_after_tax",
+		"received_amount_after_tax", "base_received_amount_after_tax",
+	];
 
-    const treasury_fields = [
-        "treasury_expenses_section",
-        "treasury_expense_items",
-        "treasury_total_amount",
-    ];
+	const treasury_fields = [
+		"treasury_expenses_section",
+		"treasury_expense_items",
+		"treasury_total_amount",
+	];
 
-    for (const field of party_fields) {
-        if (frm.fields_dict[field]) {
-            frm.set_df_property(field, "hidden", on ? 1 : 0);
-            frm.set_df_property(field, "reqd", on ? 0 : 1);
-        }
-    }
-    for (const field of ref_sections) {
-        if (frm.fields_dict[field]) {
-            frm.set_df_property(field, "hidden", on ? 1 : 0);
-        }
-    }
-    for (const field of extra_sections) {
-        if (frm.fields_dict[field]) {
-            frm.set_df_property(field, "hidden", on ? 1 : 0);
-        }
-    }
-    for (const field of treasury_fields) {
-        if (frm.fields_dict[field]) {
-            frm.set_df_property(field, "hidden", on ? 0 : 1);
-        }
-    }
+	// party_type/party/party_name are genuinely required by vanilla
+	// Payment Entry; the rest of party_fields are naturally optional.
+	// Either way, when the feature is off we never invent a value -
+	// we read Payment Entry's own native reqd/hidden back out of meta.
+	for (const field of party_fields) {
+		if (!frm.fields_dict[field]) continue;
+		if (on) {
+			frm.set_df_property(field, "hidden", 1);
+			frm.set_df_property(field, "reqd", 0);
+		} else {
+			_restore_native(frm, field, "hidden");
+			_restore_native(frm, field, "reqd");
+		}
+	}
+	for (const field of ref_sections.concat(extra_sections)) {
+		if (!frm.fields_dict[field]) continue;
+		if (on) {
+			frm.set_df_property(field, "hidden", 1);
+		} else {
+			_restore_native(frm, field, "hidden");
+		}
+	}
+	for (const field of treasury_fields) {
+		if (frm.fields_dict[field]) {
+			frm.set_df_property(field, "hidden", on ? 0 : 1);
+		}
+	}
 
-    // Make the paid_from / paid_to optional in multi mode
-    if (on && frm.doc.payment_type === "Pay" && frm.fields_dict.paid_to) {
-        frm.set_df_property("paid_to", "reqd", 0);
-    }
-    if (on && frm.doc.payment_type === "Receive" && frm.fields_dict.paid_from) {
-        frm.set_df_property("paid_from", "reqd", 0);
-    }
+	// Make the paid_from / paid_to optional in multi mode; native reqd
+	// otherwise (never a hardcoded 1 - read straight from meta).
+	if (frm.fields_dict.paid_to) {
+		if (on && frm.doc.payment_type === "Pay") {
+			frm.set_df_property("paid_to", "reqd", 0);
+		} else {
+			_restore_native(frm, "paid_to", "reqd");
+		}
+	}
+	if (frm.fields_dict.paid_from) {
+		if (on && frm.doc.payment_type === "Receive") {
+			frm.set_df_property("paid_from", "reqd", 0);
+		} else {
+			_restore_native(frm, "paid_from", "reqd");
+		}
+	}
 
-    // Relax mandatory fields that are auto-populated or irrelevant in multi mode
-    const relaxPay = ["paid_to_account_currency", "target_exchange_rate"];
-    const relaxReceive = ["paid_from_account_currency", "source_exchange_rate"];
-    const relaxAll = ["paid_amount", "received_amount"];  // auto-calculated from the table
+	// Relax mandatory fields that are auto-populated or irrelevant in multi
+	// mode; native reqd otherwise (never a hardcoded 1).
+	const relaxPay = ["paid_to_account_currency", "target_exchange_rate"];
+	const relaxReceive = ["paid_from_account_currency", "source_exchange_rate"];
+	const relaxAll = ["paid_amount", "received_amount"];  // auto-calculated from the table
 
-    for (const field of relaxPay.concat(relaxAll)) {
-        if (frm.fields_dict[field]) {
-            frm.set_df_property(field, "reqd", on && frm.doc.payment_type === "Pay" ? 0 : 1);
-        }
-    }
-    for (const field of relaxReceive.concat(relaxAll)) {
-        if (frm.fields_dict[field]) {
-            frm.set_df_property(field, "reqd", on && frm.doc.payment_type === "Receive" ? 0 : 1);
-        }
-    }
+	for (const field of relaxPay.concat(relaxAll)) {
+		if (!frm.fields_dict[field]) continue;
+		if (on && frm.doc.payment_type === "Pay") {
+			frm.set_df_property(field, "reqd", 0);
+		} else {
+			_restore_native(frm, field, "reqd");
+		}
+	}
+	for (const field of relaxReceive.concat(relaxAll)) {
+		if (!frm.fields_dict[field]) continue;
+		if (on && frm.doc.payment_type === "Receive") {
+			frm.set_df_property(field, "reqd", 0);
+		} else {
+			_restore_native(frm, field, "reqd");
+		}
+	}
 }
 
 function _update_labels(frm) {
