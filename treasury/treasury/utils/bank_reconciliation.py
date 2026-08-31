@@ -86,18 +86,10 @@ def get_matching_queries_hook(
 	try:
 		if _ours_selected(document_types):
 			if flt(transaction.deposit) > 0:
-				q = _get_receipt_matching_query(transaction, exact_match)
-				if from_date:
-					q = q.where(cr.posting_date >= from_date)
-				if to_date:
-					q = q.where(cr.posting_date <= to_date)
+				q = _get_receipt_matching_query(transaction, exact_match, from_date, to_date)
 				queries.append(q)
 			if flt(transaction.withdrawal) > 0:
-				q = _get_payment_matching_query(transaction, exact_match)
-				if from_date:
-					q = q.where(cp.posting_date >= from_date)
-				if to_date:
-					q = q.where(cp.posting_date <= to_date)
+				q = _get_payment_matching_query(transaction, exact_match, from_date, to_date)
 				queries.append(q)
 	except Exception:
 		# write to a dedicated file: the Error Log table silently drops
@@ -122,7 +114,7 @@ def get_matching_queries_hook(
 	return queries
 
 
-def _get_receipt_matching_query(transaction, exact_match):
+def _get_receipt_matching_query(transaction, exact_match, from_date=None, to_date=None):
 	"""Deposited cheques ("Under Collection") banked at this Bank Account.
 
 	The bank is resolved through the cheque's submitted Cheque Deposit,
@@ -133,7 +125,7 @@ def _get_receipt_matching_query(transaction, exact_match):
 	cr = frappe.qb.DocType("Cheque Receipt")
 	cd = frappe.qb.DocType("Cheque Deposit")
 
-	exact = flt(remaining_unallocated)
+	exact = flt(transaction.unallocated_amount)
 	amount_equality = cr.cheque_amount == exact
 	party_condition = (cr.party == transaction.party) & cr.party.isnotnull()
 	rank = Case().when(amount_equality, 2).when(party_condition, 1).else_(0) + 1
@@ -164,10 +156,14 @@ def _get_receipt_matching_query(transaction, exact_match):
 	)
 	if exact_match:
 		query = query.where(amount_equality)
+	if from_date:
+		query = query.where(cr.posting_date >= from_date)
+	if to_date:
+		query = query.where(cr.posting_date <= to_date)
 	return query.limit(20)
 
 
-def _get_payment_matching_query(transaction, exact_match):
+def _get_payment_matching_query(transaction, exact_match, from_date=None, to_date=None):
 	"""Issued cheques ("Issued") drawn on this Bank Account.
 
 	The Cheque Payment carries its own `bank` field (the company's
@@ -177,7 +173,7 @@ def _get_payment_matching_query(transaction, exact_match):
 
 	cp = frappe.qb.DocType("Cheque Payment")
 
-	exact = flt(remaining_unallocated)
+	exact = flt(transaction.unallocated_amount)
 	amount_equality = cp.cheque_amount == exact
 	party_condition = (cp.party == transaction.party) & cp.party.isnotnull()
 	rank = Case().when(amount_equality, 2).when(party_condition, 1).else_(0) + 1
@@ -205,6 +201,10 @@ def _get_payment_matching_query(transaction, exact_match):
 	)
 	if exact_match:
 		query = query.where(amount_equality)
+	if from_date:
+		query = query.where(cp.posting_date >= from_date)
+	if to_date:
+		query = query.where(cp.posting_date <= to_date)
 	return query.limit(20)
 
 
