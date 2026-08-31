@@ -280,12 +280,16 @@ def validate_deductions(self, items_fieldname, doctype_label, allow_cheque_surpl
 			# Cheque is LARGER than what was allocated: accept it and book the
 			# surplus as an on-account/advance amount on the party's account.
 			self._difference_account = resolve_difference_account(self.company)
-			frappe.msgprint(_(
-				"Cheque surplus of {0} will be booked as an advance on {1}."
-			).format(
-				frappe.utils.fmt_money(-self.difference_amount, currency=self.currency),
-				frappe.bold(self._difference_account),
-			))
+			# validate() runs on every Save AND again on Submit - only notify
+			# once, on the Save that actually introduces/changes the surplus,
+			# not a second time when the user goes on to submit the same doc.
+			if getattr(self, "_action", None) != "submit":
+				frappe.msgprint(_(
+					"Cheque surplus of {0} will be booked as an advance on {1}."
+				).format(
+					frappe.utils.fmt_money(-self.difference_amount, currency=self.currency),
+					frappe.bold(self._difference_account),
+				))
 		elif abs(self.difference_amount) > 0.005:
 			frappe.throw(_(
 				"Cheque Amount ({0}) must equal Allocated ({1})"

@@ -277,10 +277,9 @@
   {
    "allow_on_submit": 1,
    "fieldname": "cheque_deposit",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "label": "Cheque Deposit",
    "no_copy": 1,
-   "options": "Cheque Deposit",
    "read_only": 1
   },
   {

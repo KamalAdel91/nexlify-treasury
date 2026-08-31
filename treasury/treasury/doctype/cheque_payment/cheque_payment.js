@@ -76,7 +76,27 @@ return { filters };
 });
 },
 
+
+
+bank(frm) {
+if (!frm.doc.bank) return;
+frappe.db.get_value("Bank Account", frm.doc.bank, "account").then((r) => {
+const account = r.message && r.message.account;
+if (!account) return;
+frappe.db.get_value("Account", account, "account_currency").then((r2) => {
+const currency = r2.message && r2.message.account_currency;
+if (currency) frm.set_value("currency", currency);
+});
+});
+},
+
+
+
+
 refresh(frm) {
+if (frm.is_new() && !frm.doc.bank && frm.doc.currency) {
+frm.set_value("currency", "");
+}
 if (frm.doc.docstatus === 0) {
 frm.add_custom_button(__("Preview"), () => frm.events.preview_ledger(frm));
 } else if (frm.doc.docstatus === 1) {

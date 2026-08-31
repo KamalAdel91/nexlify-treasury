@@ -21,7 +21,31 @@ frappe.ui.form.on("Cheque Deposit", {
 		});
 	},
 
+	
+		bank(frm) {
+		// Currency is always the bank account's own currency, never
+		// user-chosen (the field is read-only) - refresh it live so the
+		// user sees the correct value before saving, matching validate().
+		if (!frm.doc.bank) return;
+		frappe.db.get_value("Bank Account", frm.doc.bank, "account").then((r) => {
+			const account = r.message && r.message.account;
+			if (!account) return;
+			frappe.db.get_value("Account", account, "account_currency").then((r2) => {
+				const currency = r2.message && r2.message.account_currency;
+				if (currency) frm.set_value("currency", currency);
+			});
+		});
+	},
+	
 	refresh(frm) {
+		// The "Currency" Link field auto-fills from the system/company
+		// default the instant a new document opens, before any bank has
+		// been chosen - misleading since it's read-only and meant to
+		// reflect the selected bank account, not a generic default. Clear
+		// it until bank(frm) actually sets it from the real source.
+		if (frm.is_new() && !frm.doc.bank && frm.doc.currency) {
+			frm.set_value("currency", "");
+		}
 		if (frm.doc.docstatus === 0) {
 			frm.add_custom_button(__("Add Pending Cheques"), () => frm.events.add_pending_cheques(frm));
 			frm.add_custom_button(__("Preview"), () => frm.events.preview_ledger(frm));

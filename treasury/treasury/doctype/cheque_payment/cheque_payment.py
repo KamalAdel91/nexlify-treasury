@@ -47,10 +47,26 @@ class ChequePayment(AccountsController):
 		self.validate_booking_mode()
 		self.set_missing_values()
 		self._validate_frozen_accounting()
+		self.currency = self._bank_account_currency()
 		self.validate_currency()
 		self.validate_basic_data()
 		self.validate_items()
 		self.validate_deductions()
+
+
+	def _bank_account_currency(self):
+		"""Currency is always the selected bank account's own currency -
+		never user-chosen. Resolved live from the Bank Account -> Account
+		link, matching Cheque Deposit's rule."""
+		if not self.bank:
+			return self.currency
+		account = frappe.db.get_value("Bank Account", self.bank, "account")
+		if not account:
+			frappe.throw(_("Bank Account {0} has no linked Account").format(frappe.bold(self.bank)))
+		return get_account_currency(account)
+
+
+
 
 	def _validate_frozen_accounting(self):
 		if not self.company or not self.posting_date:

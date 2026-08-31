@@ -32,27 +32,24 @@ function render_lifecycle(frm) {
 			const meta = r.message;
 			let html = "";
 
-			// header row: "Lifecycle" + status pill badge
-			const is_complete = meta.current_status === "Reconciled";
+			const header_color = frappe.treasury.get_status_color(meta.current_status);
 			html +=
 				'<div class="lc-header">' +
 				'<span class="lc-header-title">' + __("Lifecycle") + "</span>" +
-				'<span class="lc-status-pill' + (is_complete ? " lc-status-complete" : " lc-status-pending") + '">' +
+				'<span class="lc-status-pill lc-color-' + header_color + '">' +
 				'<span class="lc-status-dot"></span>' +
 				frappe.utils.escape_html(meta.current_status || "") +
 				"</span>" +
 				"</div>";
 
-			// timeline
 			html += '<div class="lc-timeline">';
 			events.forEach((ev, idx) => {
 				const cancelled = ev.cancelled;
-				const done = ev.status === "Reconciled" && !cancelled;
+				const row_color = cancelled ? "red" : frappe.treasury.get_status_color(ev.status);
 				const icon = stage_icon(ev.event);
-				const icon_cls = "lc-icon-wrap" + (done ? " lc-icon-done" : " lc-icon-pending");
+				const icon_cls = "lc-icon-wrap lc-color-" + row_color;
 
 				html += '<div class="lc-row">';
-				// circle column
 				html +=
 					'<div class="lc-circle-col">' +
 					'<span class="' + icon_cls + '">' +
@@ -60,15 +57,12 @@ function render_lifecycle(frm) {
 					"</span>" +
 					(idx < events.length - 1 ? '<span class="lc-line"></span>' : "") +
 					"</div>";
-				// content column
 				html += '<div class="lc-content">';
-				// line 1: event name + date
 				html +=
 					'<div class="lc-event-row">' +
 					'<span class="lc-event-name">' + frappe.utils.escape_html(ev.event) + "</span>" +
 					'<span class="lc-event-date">' + frappe.utils.escape_html(ev.date || "") + "</span>" +
 					"</div>";
-				// line 2: document link
 				html +=
 					'<div class="lc-doc-row">' +
 					'<a href="/app/' + ev.route + "/" + frappe.utils.escape_html(ev.document) + '">' +
@@ -76,18 +70,16 @@ function render_lifecycle(frm) {
 					"</a>" +
 					(cancelled ? ' <span class="lc-cancelled-tag">' + __("Cancelled") + "</span>" : "") +
 					"</div>";
-				// line 3: note
 				if (ev.note) {
 					html +=
 						'<div class="lc-event-note">' +
 						frappe.utils.escape_html(ev.note) +
 						"</div>";
 				}
-				html += "</div></div>"; // .lc-content, .lc-row
+				html += "</div></div>";
 			});
-			html += "</div>"; // .lc-timeline
+			html += "</div>";
 
-			// inject CSS once
 			if (!document.getElementById("lc-styles")) {
 				const style = document.createElement("style");
 				style.id = "lc-styles";
@@ -107,7 +99,6 @@ function stage_icon(event_label) {
 	return "fa-circle";
 }
 
-// injected stylesheet (theme CSS variables, no hardcoded hex)
 const LIFECYCLE_CSS = `
 .lc-header {
 	display: flex; justify-content: space-between; align-items: center;
@@ -124,14 +115,24 @@ const LIFECYCLE_CSS = `
 	font-size: var(--text-sm, 0.8125rem);
 	font-weight: var(--weight-medium, 500); line-height: 1.5;
 }
-.lc-status-complete { background: var(--green-100); color: var(--green-700); }
-.lc-status-pending  { background: var(--gray-100);  color: var(--gray-700); }
 .lc-status-dot {
 	width: 6px; height: 6px; border-radius: 50%;
 	display: inline-block; flex-shrink: 0;
 }
-.lc-status-complete .lc-status-dot { background: var(--green-600); }
-.lc-status-pending  .lc-status-dot { background: var(--gray-500); }
+.lc-color-green  { background: var(--green-100); color: var(--green-700); }
+.lc-color-red    { background: var(--red-100);   color: var(--red-700); }
+.lc-color-gray   { background: var(--gray-100);  color: var(--gray-700); }
+.lc-color-orange { background: #fdedd3; color: #b45309; }
+.lc-color-purple { background: #ede9fe; color: #6d28d9; }
+.lc-color-blue   { background: #dbeafe; color: #1d4ed8; }
+.lc-color-cyan   { background: #cffafe; color: #0e7490; }
+.lc-color-green  .lc-status-dot { background: var(--green-600); }
+.lc-color-red    .lc-status-dot { background: var(--red-600); }
+.lc-color-gray   .lc-status-dot { background: var(--gray-600); }
+.lc-color-orange .lc-status-dot { background: #b45309; }
+.lc-color-purple .lc-status-dot { background: #6d28d9; }
+.lc-color-blue   .lc-status-dot { background: #1d4ed8; }
+.lc-color-cyan   .lc-status-dot { background: #0e7490; }
 
 .lc-timeline { padding: 0 0 0 4px; }
 .lc-row { display: flex; align-items: flex-start; }
@@ -144,8 +145,6 @@ const LIFECYCLE_CSS = `
 	display: flex; align-items: center; justify-content: center;
 	font-size: 16px; flex-shrink: 0;
 }
-.lc-icon-done    { background: var(--green-100); color: var(--green-600); }
-.lc-icon-pending { background: var(--gray-100);  color: var(--gray-500); }
 .lc-line {
 	width: 2px; flex: 1; min-height: 20px;
 	background: var(--gray-300); margin: 0 auto;

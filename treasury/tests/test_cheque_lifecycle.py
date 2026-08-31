@@ -171,11 +171,15 @@ class TestChequeLifecycle(FrappeTestCase):
 			safe_cancel_delete("Cheque Deposit", dep.name if dep else None)
 			safe_cancel_delete("Cheque Receipt", cr.name)
 
-	def test_cancel_preflight_skips_receipt_with_ignore_list(self):
-		"""The UI's pre-cancel pre-flight (get_submitted_linked_docs) must return
-		no docs for a deposit when the client sends ignore_doctypes_on_cancel_all
-		["Cheque Receipt"] — that is exactly how the "Cancel All Documents" dialog
-		is suppressed so the deposit cancels standalone (public/js/cheque_deposit.js)."""
+	def test_cancel_preflight_never_flags_receipt(self):
+		"""Cheque Receipt.cheque_deposit is a plain Data field (not a Link), so
+		Frappe's own submittable-link discovery (get_submitted_linked_docs -
+		the same mechanism behind the "Cancel All Documents" dialog) never
+		finds the receipt as a dependant of the deposit in the first place.
+		No ignore_doctypes_on_cancel_all suppression is needed anymore
+		(public/js/cheque_deposit.js's list is now redundant, kept only as a
+		harmless no-op safety net) - the deposit cancel is standalone by
+		construction, confirmed with and without the ignore list."""
 		from frappe.desk.form.linked_with import get_submitted_linked_docs
 
 		cr = make_receipt(self.fx, CHQ, cheque_no="T3-REC-2B", party=self.party)
@@ -186,17 +190,18 @@ class TestChequeLifecycle(FrappeTestCase):
 			self.assertEqual(cr.cheque_status, "Under Collection")
 
 			without_ignore = get_submitted_linked_docs("Cheque Deposit", dep.name)
-			self.assertIn(
-				{"doctype": "Cheque Receipt", "name": cr.name, "docstatus": 1},
+			self.assertEqual(
 				without_ignore["docs"],
-				"pre-flight must normally see the linked receipt (dialog trigger)",
+				[],
+				"receipt must never surface as a linked/cascade-cancel candidate "
+				"(cheque_deposit is Data, not Link) - no dialog, no ignore list needed",
 			)
 
 			with_ignore = get_submitted_linked_docs(
 				"Cheque Deposit", dep.name, ignore_doctypes_on_cancel_all=["Cheque Receipt"]
 			)
 			self.assertEqual(
-				with_ignore["docs"], [], "ignore list must suppress the dialog trigger"
+				with_ignore["docs"], [], "the ignore list stays a harmless no-op"
 			)
 
 			dep.cancel()

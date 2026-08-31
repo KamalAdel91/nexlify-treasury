@@ -248,15 +248,12 @@ class ChequeDeposit(AccountsController):
 			)
 
 		self.ignore_linked_doctypes = ["GL Entry", "Payment Ledger Entry"]
-		# Cancelling a deposit must NOT force cancelling its Cheque Receipts:
-		# on_cancel re-derives each cheque from reality (sync_stage -> back to
-		# "Cheques In Hand" and cheque_deposit = None), so the receipts' link
-		# must not block this cancel. The real business guard is the
-		# reconciliation freeze enforced above, therefore skip the framework's
-		# back-link check entirely (document.check_no_back_links_exist honours
-		# flags.ignore_links) — this keeps cancel working standalone regardless
-		# of where the frappe version runs the check relative to on_cancel.
-		self.flags.ignore_links = True
+		# Cancelling a deposit must NOT force cancelling its Cheque Receipts.
+		# Cheque Receipt.cheque_deposit is a plain Data field (not a Link), so
+		# Frappe's default back-link check never finds it — no framework
+		# bypass is needed here. The real business guard is the reconciliation
+		# freeze enforced above. on_cancel re-derives each cheque from reality
+		# (sync_stage -> back to "Cheques In Hand" and cheque_deposit = None).
 
 
 @frappe.whitelist()
