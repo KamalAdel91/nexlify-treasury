@@ -103,7 +103,9 @@ function _native_df(fieldname) {
 	// The Payment Entry doctype's own unmodified field definition, read
 	// fresh from meta every time - never a value we invented or a runtime
 	// copy that our own set_df_property calls may have already mutated.
-	return frappe.get_meta("Payment Entry").get_field(fieldname) || {};
+	// frappe.meta.get_docfield() is the long-established client-side API
+	// for this (frappe.get_meta(...).get_field(...) does not exist here).
+	return frappe.meta.get_docfield("Payment Entry", fieldname) || {};
 }
 
 function _restore_native(frm, fieldname, prop) {
@@ -231,12 +233,12 @@ function _update_labels(frm) {
     if (frm.doc.payment_type === "Receive") {
         frm.set_df_property("treasury_expenses_section", "label", "Company Revenues");
         if (frm.fields_dict.treasury_expense_items) {
-            frm.fields_dict.treasury_expense_items.grid.set_column_label("account", "Revenue Account");
+            frm.fields_dict.treasury_expense_items.grid.update_docfield_property("account", "label", "Revenue Account");
         }
     } else {
         frm.set_df_property("treasury_expenses_section", "label", "Company Expenses");
         if (frm.fields_dict.treasury_expense_items) {
-            frm.fields_dict.treasury_expense_items.grid.set_column_label("account", "Expense Account");
+            frm.fields_dict.treasury_expense_items.grid.update_docfield_property("account", "label", "Expense Account");
         }
     }
 }

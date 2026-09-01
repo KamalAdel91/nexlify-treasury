@@ -10,7 +10,7 @@ CUSTOM_FIELDS = {
             "fieldname": "multi_expense",
             "fieldtype": "Check",
             "label": "Multi Expense / Revenue",
-            "insert_after": "payment_order_status",
+            "insert_after": "mode_of_payment",
             "description": "Enable company expense/revenue table (no party required)",
             "depends_on": "eval:doc.payment_type != 'Internal Transfer'",
         },
@@ -60,6 +60,17 @@ def _ensure_fields():
                 pluck="name",
             )
             if existing:
+                # Field already exists (e.g. from an earlier release) - keep
+                # its insert_after in sync with this file so a corrected
+                # position (like this one, moved out of the middle of
+                # column_break_5's native layout) actually takes effect on
+                # sites that installed the field before the fix, not just
+                # on fresh installs.
+                current = frappe.db.get_value("Custom Field", existing[0], "insert_after")
+                if current != field_def.get("insert_after"):
+                    frappe.db.set_value(
+                        "Custom Field", existing[0], "insert_after", field_def["insert_after"]
+                    )
                 continue
             cf = frappe.get_doc(
                 {"doctype": "Custom Field", "dt": doctype, **field_def}
