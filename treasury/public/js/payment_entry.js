@@ -68,6 +68,15 @@ function _treasury_multi_refresh(frm) {
             _setup_account_query(frm);
             _apply_multi_visibility(frm);
             _update_labels(frm);
+            // Defensive re-assert: some refresh cycle elsewhere (native
+            // Payment Entry handlers, grid redraw, etc.) can momentarily
+            // revert paid_amount/received_amount/treasury_total_amount to
+            // their last-saved value right after a row edit. Recomputing
+            // here on every refresh, not only on row amount changes, makes
+            // the total self-correct instead of staying visibly wrong.
+            if (frm.doc.multi_expense) {
+                _recalc_total(frm);
+            }
         });
 }
 
@@ -83,18 +92,26 @@ function _setup_account_query(frm) {
         frm.fields_dict.treasury_expense_items.grid.get_field("account").get_query =
             function () {
                 if (!frm.doc.company) return { filters: {} };
-                const filters = {
-                    company: frm.doc.company,
-                    is_group: 0,
+                // Any leaf account in the company - not restricted to
+                // Expense (Pay) or Income (Receive) only, since a row can
+                // also be used to reduce/offset an existing expense or
+                // revenue account rather than always adding a new one.
+                return {
+                    filters: {
+                        company: frm.doc.company,
+                        is_group: 0,
+                    },
                 };
-                if (frm.doc.payment_type === "Pay") {
-                    filters.root_type = "Expense";
-                    filters.account_type = ["!=", "Tax"];
-                } else {
-                    // Receive → Income accounts
-                    filters.root_type = "Income";
-                }
-                return { filters };
+            };
+        // Restrict Party Type in the grid to actual party doctypes
+        // (Customer, Supplier, Employee, ...), not every DocType.
+        frm.fields_dict.treasury_expense_items.grid.get_field("party_type").get_query =
+            function () {
+                return {
+                    filters: {
+                        name: ["in", Object.keys(frappe.boot.party_account_types || {})],
+                    },
+                };
             };
     }
 }
@@ -232,14 +249,8 @@ function _update_labels(frm) {
     if (!frm.fields_dict.treasury_expenses_section) return;
     if (frm.doc.payment_type === "Receive") {
         frm.set_df_property("treasury_expenses_section", "label", "Company Revenues");
-        if (frm.fields_dict.treasury_expense_items) {
-            frm.fields_dict.treasury_expense_items.grid.update_docfield_property("account", "label", "Revenue Account");
-        }
     } else {
         frm.set_df_property("treasury_expenses_section", "label", "Company Expenses");
-        if (frm.fields_dict.treasury_expense_items) {
-            frm.fields_dict.treasury_expense_items.grid.update_docfield_property("account", "label", "Expense Account");
-        }
     }
 }
 
@@ -250,12 +261,53 @@ function _recalc_total(frm) {
             total += flt(row.amount);
         }
     }
-    frm.set_value({
-        paid_amount: total,
-        received_amount: total,
-        treasury_total_amount: total,
-    });
-    frm.refresh_field("treasury_total_amount");
+
+    // Bail out early if nothing actually changed. This function now runs
+    // on every refresh(frm) - including the refresh Frappe triggers right
+    // after a successful Save - so calling frm.dirty() unconditionally
+    // was re-marking a just-saved document as having unsaved changes on
+    // every single refresh cycle. That kept Frappe perpetually treating
+    // the document as "not fully saved", which is why the Submit button
+    // never appeared: only re-dirty (and re-set) when the computed total
+    // genuinely differs from what's already on frm.doc.
+    if (
+        flt(frm.doc.paid_amount) === total &&
+        flt(frm.doc.received_amount) === total &&
+        flt(frm.doc.treasury_total_amount) === total
+    ) {
+        return;
+    }
+
+    // Root cause of the earlier flicker: frm.set_value("paid_amount"/
+    // "received_amount", ...) fires ERPNext's own native paid_amount/
+    // received_amount handlers, which - among other things - call
+    // allocate_party_amount_against_ref_docs(). That does an ASYNC server
+    // round-trip (frm.call("allocate_amount_to_references", ...)) that
+    // recomputes the allocated/unallocated amount from the references
+    // table. In multi-expense mode there are no references at all, so
+    // that async call comes back and resets paid_amount/received_amount
+    // toward 0 a moment after we set them - the "flicker".
+    //
+    // These two fields are purely a display/derived total in multi mode
+    // (nothing here is meant to allocate against invoices), so we bypass
+    // frm.set_value entirely for them and write frm.doc directly - this
+    // never triggers the native field-change chain, so none of that
+    // reference-allocation machinery ever runs in the first place.
+    frm.doc.paid_amount = total;
+    frm.doc.received_amount = total;
+    frm.doc.treasury_total_amount = total;
+    // Mirror overrides/payment_entry.py's set_amounts(): the server sets
+    // base_paid_amount/base_received_amount = total correctly at save
+    // time, but Frappe's client-side mandatory-field check runs *before*
+    // that, still seeing whatever was last computed here (0, since we no
+    // longer trigger the native chain that used to fill it in). Set the
+    // same value client-side too so that pre-save check passes.
+    frm.doc.base_paid_amount = total;
+    frm.doc.base_received_amount = total;
+    frm.dirty();
     frm.refresh_field("paid_amount");
     frm.refresh_field("received_amount");
+    frm.refresh_field("treasury_total_amount");
+    frm.refresh_field("base_paid_amount");
+    frm.refresh_field("base_received_amount");
 }

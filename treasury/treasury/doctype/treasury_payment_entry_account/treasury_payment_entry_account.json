@@ -41,12 +41,16 @@
   {
    "fieldname": "party_type",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "columns": 2,
    "label": "Party Type",
    "options": "DocType"
   },
   {
    "fieldname": "party",
    "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "columns": 2,
    "label": "Party",
    "options": "party_type"
   },
