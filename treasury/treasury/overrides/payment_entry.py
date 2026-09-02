@@ -1,6 +1,19 @@
-"""Treasury override for Payment Entry — Multi-Expense / Multi-Revenue.
+"""Treasury extension for Payment Entry — Multi-Expense / Multi-Revenue.
 
-Activated via the ``override_doctype_class`` hook in treasury/hooks.py.
+Activated via the ``extend_doctype_class`` hook in treasury/hooks.py, NOT
+``override_doctype_class``. Frappe only keeps one class per doctype for
+``override_doctype_class`` (whichever app is last in the merged hook list
+wins outright, with no chaining) - on any site that also has another app
+overriding Payment Entry the same way (e.g. hrms's EmployeePaymentEntry),
+that other app would win and this class would never run at all.
+
+``extend_doctype_class`` instead layers this class on top of whichever
+class actually wins - Frappe builds the final controller as
+(TreasuryPaymentEntryMixin, <winning class>), so this always runs, and
+``super()`` calls below correctly fall through to that winning class
+(hrms's EmployeePaymentEntry, or plain ERPNext's PaymentEntry when no
+other app overrides it) for anything that is not multi-expense/revenue.
+
 When ``multi_expense`` is ticked:
 - Party is hidden and becomes optional.
 - A child table (Treasury Payment Entry Account) captures the real lines:
@@ -10,18 +23,22 @@ When ``multi_expense`` is ticked:
 """
 
 import frappe
-from erpnext.accounts.doctype.payment_entry.payment_entry import (
-    PaymentEntry,
-    get_account_details,
-)
+from erpnext.accounts.doctype.payment_entry.payment_entry import get_account_details
 from erpnext.accounts.general_ledger import make_gl_entries, process_gl_map
 from erpnext.accounts.utils import cancel_exchange_gain_loss_journal
 from frappe import _
 from frappe.utils import cint, flt
 
 
-class TreasuryPaymentEntry(PaymentEntry):
-    """Extends ERPNext's PaymentEntry with multi-expense / multi-revenue support."""
+class TreasuryPaymentEntryMixin:
+    """Adds multi-expense / multi-revenue support to Payment Entry.
+
+    A mixin, not a full controller replacement - has no base class of its
+    own. Frappe's extend_doctype_class machinery places it first in the
+    MRO ahead of whichever class actually controls Payment Entry on a
+    given site, so every ``super()`` call below resolves correctly to
+    that class regardless of which app it belongs to.
+    """
 
     # ---------------------------------------------------------------
     # helpers

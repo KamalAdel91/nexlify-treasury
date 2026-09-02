@@ -305,8 +305,8 @@ class TestMultiExpenseMandatoryRelaxation(FrappeTestCase):
             "multi_expense": 1,
         })
         _add_multi_line(pe, self.fx.expense_account, 100)
-        from treasury.treasury.overrides.payment_entry import TreasuryPaymentEntry
-        self.assertTrue(isinstance(pe, TreasuryPaymentEntry))
+        from treasury.treasury.overrides.payment_entry import TreasuryPaymentEntryMixin
+        self.assertTrue(isinstance(pe, TreasuryPaymentEntryMixin))
 
         # Server-side parity of the JS reqd=0 relaxation: the meta still says
         # reqd=1 (we must NOT mutate shared meta), but our override must

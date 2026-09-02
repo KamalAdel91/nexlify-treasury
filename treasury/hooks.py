@@ -200,9 +200,13 @@ after_install = "treasury.treasury.setup.install._ensure_fields"
 # 	"Task": "treasury.task.get_dashboard_data"
 # }
 
-# ── Treasury Payment Entry override (multi-expense / multi-revenue) ──
-override_doctype_class = {
-    "Payment Entry": "treasury.treasury.overrides.payment_entry.TreasuryPaymentEntry",
+# ── Treasury Payment Entry extension (multi-expense / multi-revenue) ──
+# extend_doctype_class (not override_doctype_class): layers on top of
+# whichever class actually controls Payment Entry on a given site instead
+# of racing other apps (e.g. hrms) for a single "last one wins" slot - see
+# the module docstring in overrides/payment_entry.py for the full reasoning.
+extend_doctype_class = {
+    "Payment Entry": ["treasury.treasury.overrides.payment_entry.TreasuryPaymentEntryMixin"],
 }
 
 # exempt linked doctypes from being automatically cancelled
