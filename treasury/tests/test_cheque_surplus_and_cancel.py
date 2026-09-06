@@ -141,21 +141,48 @@ class TestChequeSurplusAdvance(FrappeTestCase):
 		return doc
 
 	def test_resolver_prefers_payable_advance_account_for_payable_party_types(self):
-		"""Supplier, Employee and Shareholder are all account_type=Payable in
-		ERPNext's own Party Type fixtures - all three must resolve to the
-		same Payable-side advance/payable account, not the Receivable one."""
+		"""Supplier and Shareholder are both account_type=Payable in
+		ERPNext's own Party Type fixtures and have no dedicated advance
+		account of their own - both resolve to the generic Payable-side
+		advance/payable account, not the Receivable one. Employee is
+		covered separately below since hrms gives it its own field."""
 		payable = frappe.db.get_value("Company", self.company, "default_payable_account")
 		advance_paid = frappe.db.get_value("Company", self.company, "default_advance_paid_account")
 		try:
 			frappe.db.set_value("Company", self.company, "book_advance_payments_in_separate_party_account", 0)
-			for party_type in ("Supplier", "Employee", "Shareholder"):
+			for party_type in ("Supplier", "Shareholder"):
 				self.assertEqual(resolve_difference_account(self.company, party_type), payable)
 			if advance_paid:
 				frappe.db.set_value("Company", self.company, "book_advance_payments_in_separate_party_account", 1)
-				for party_type in ("Supplier", "Employee", "Shareholder"):
+				for party_type in ("Supplier", "Shareholder"):
 					self.assertEqual(resolve_difference_account(self.company, party_type), advance_paid)
 		finally:
 			frappe.db.set_value("Company", self.company, "book_advance_payments_in_separate_party_account", 0)
+
+	def test_resolver_employee_prefers_its_own_dedicated_advance_account(self):
+		"""hrms adds Company.default_employee_advance_account, a field of
+		its own separate from Supplier's default_advance_paid_account -
+		Employee must resolve to that when hrms is installed and the field
+		is set, falling back to the generic Payable account otherwise
+		(field absent - hrms not installed - or present but unset)."""
+		has_field = frappe.get_meta("Company").has_field("default_employee_advance_account")
+		if not has_field:
+			payable = frappe.db.get_value("Company", self.company, "default_payable_account")
+			self.assertEqual(resolve_difference_account(self.company, "Employee"), payable)
+			return
+
+		original = frappe.db.get_value("Company", self.company, "default_employee_advance_account")
+		try:
+			frappe.db.set_value("Company", self.company, "default_employee_advance_account", self.fx.payable_account)
+			self.assertEqual(
+				resolve_difference_account(self.company, "Employee"), self.fx.payable_account
+			)
+
+			frappe.db.set_value("Company", self.company, "default_employee_advance_account", None)
+			payable = frappe.db.get_value("Company", self.company, "default_payable_account")
+			self.assertEqual(resolve_difference_account(self.company, "Employee"), payable)
+		finally:
+			frappe.db.set_value("Company", self.company, "default_employee_advance_account", original)
 
 	def test_surplus_accepted_for_payment_and_gl_balanced(self):
 		"""Cheque Payment now accepts an unallocated remainder too (any

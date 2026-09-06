@@ -225,19 +225,36 @@ def resolve_difference_account(company, party_type=None):
 	choice is driven by the party type's account_type (Receivable/Payable),
 	not by any specific party type name - Customer is Receivable; Supplier,
 	Employee and Shareholder are all Payable (confirmed in ERPNext's own
-	fixture data), and any custom Party Type follows the same account_type
-	field. Falls back to Receivable behaviour (matching the original,
-	Cheque-Receipt-only version of this function) when no party_type is
-	given, e.g. a without_party cheque.
+	fixture data). Employee is a special case within Payable: hrms adds its
+	own dedicated Company.default_employee_advance_account field (see
+	hrms/overrides/company.py's set_default_hr_accounts), separate from
+	Supplier's default_advance_paid_account - checked here only when that
+	field actually exists on Company (i.e. hrms is installed), so this
+	still works correctly on any site without hrms. Any other custom Party
+	Type follows the generic account_type field. Falls back to Receivable
+	behaviour (matching the original, Cheque-Receipt-only version of this
+	function) when no party_type is given, e.g. a without_party cheque.
 
 	Uses Company.book_advance_payments_in_separate_party_account to pick
 	between the dedicated advance account and the plain receivable/payable
 	account, falling back to the plain account when the advance account is
-	unset either way.
+	unset either way. Not relevant for Employee: hrms's own field is
+	already the dedicated advance account, with no separate "on/off" flag.
 	"""
 	account_type = None
 	if party_type:
 		account_type = frappe.db.get_value("Party Type", party_type, "account_type")
+
+	if party_type == "Employee" and frappe.get_meta("Company").has_field(
+		"default_employee_advance_account"
+	):
+		account = frappe.db.get_value("Company", company, "default_employee_advance_account")
+		if account:
+			return account
+		# hrms installed but the field is unset on this Company - fall
+		# through to the generic Payable resolution below instead of
+		# throwing here, exactly like the Supplier/Shareholder path does
+		# when their own advance account is unset.
 
 	book_separate = cint(
 		frappe.db.get_value("Company", company, "book_advance_payments_in_separate_party_account")
