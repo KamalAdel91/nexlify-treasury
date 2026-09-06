@@ -11,7 +11,7 @@ from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate
 from frappe import _
 from frappe.utils import cint, flt, formatdate, getdate, nowdate
-from treasury.treasury.utils.cheque_shared import resolve_party_name
+from treasury.treasury.utils.cheque_shared import resolve_difference_account, resolve_party_name
 
 
 PARTY_ACCOUNT_TYPE_MAP = {
@@ -128,7 +128,7 @@ class ChequePayment(AccountsController):
 	def validate_deductions(self):
 		"""Validate deductions (shared)."""
 		from treasury.treasury.utils.cheque_shared import validate_deductions
-		return validate_deductions(self, "cheque_payment_items", "Cheque Payment")
+		return validate_deductions(self, "cheque_payment_items", "Cheque Payment", allow_cheque_surplus=True)
 
 
 
@@ -326,6 +326,30 @@ class ChequePayment(AccountsController):
 			d_row.user_remark = _("Deduction: {0}").format(ded.description or ded.account)
 			rows.append(d_row)
 
+		# Dr unallocated remainder (cheque larger than what was allocated, or
+		# no allocation at all): booked as an advance on the party's own
+		# advance/payable account, mirroring Cheque Receipt's surplus row on
+		# the opposite (credit) side. Covers the "no allocation whatsoever"
+		# case too - difference_amount is then simply the full cheque amount.
+		surplus = -flt(self.difference_amount) * rate
+		if surplus > 0.005:
+			adv_account = (
+				getattr(self, "_difference_account", None)
+				or resolve_difference_account(self.company, self.party_type)
+			)
+			adv = frappe._dict({**base})
+			adv.account = adv_account
+			adv.debit = surplus
+			adv.credit = 0
+			adv.debit_in_account_currency = surplus
+			adv.credit_in_account_currency = 0
+			adv.account_currency = get_account_currency(adv_account)
+			adv.party_type = self.party_type
+			adv.party = self.party
+			adv.against_account = issuing
+			adv.user_remark = _("Unallocated cheque amount booked as advance")
+			rows.append(adv)
+
 		return rows
 
 	def on_submit(self):
@@ -452,6 +476,47 @@ def get_preview_ledger(
 			}
 		)
 	return out
+
+
+@frappe.whitelist()
+def check_pending_advance(company, party_type, cheque_amount, items=None, deductions=None):
+	"""Return whether saving now would leave an unallocated remainder that
+	gets booked as an advance (see validate_deductions' surplus branch in
+	cheque_shared.py), and if so, how much and on which account - purely
+	for a client-side confirmation dialog *before* the actual save/validate
+	runs. Kept intentionally lightweight (recomputes just the difference
+	arithmetic rather than constructing a full fake doc): if
+	validate_deductions' own difference formula ever changes, mirror the
+	change here too.
+	"""
+	if not frappe.has_permission("Cheque Payment", "read"):
+		frappe.throw(_("Not permitted to read Cheque Payment"), frappe.PermissionError)
+
+	def _rows(value):
+		if not value:
+			return []
+		if isinstance(value, str):
+			value = json.loads(value)
+		return value
+
+	items = _rows(items)
+	deductions = _rows(deductions)
+
+	row_deductions = sum(
+		flt(it.get("deduction_amount") or 0) for it in items if it.get("apply_deduction")
+	)
+	collection_deductions = sum(flt(d.get("amount") or 0) for d in deductions)
+	total_allocated = sum(flt(it.get("allocated_amount")) for it in items)
+	difference = flt((total_allocated - row_deductions - collection_deductions) - flt(cheque_amount), 2)
+
+	if difference >= -0.005:
+		return {"surplus": False}
+
+	return {
+		"surplus": True,
+		"amount": -difference,
+		"account": resolve_difference_account(company, party_type),
+	}
 
 
 

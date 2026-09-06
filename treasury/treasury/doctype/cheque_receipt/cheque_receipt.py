@@ -284,7 +284,7 @@ class ChequeReceipt(AccountsController):
 		if surplus > 0.005:
 			adv_account = (
 				getattr(self, "_difference_account", None)
-				or resolve_difference_account(self.company)
+				or resolve_difference_account(self.company, self.get("party_type"))
 			)
 			adv = frappe._dict({**base})
 			adv.account = adv_account

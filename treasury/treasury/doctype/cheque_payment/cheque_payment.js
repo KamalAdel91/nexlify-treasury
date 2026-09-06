@@ -109,6 +109,50 @@ company: frm.doc.company,
 }
 },
 
+before_save(frm) {
+	// Any unallocated remainder (partial allocation, or none at all) is
+	// booked as an advance server-side (see check_pending_advance /
+	// validate_deductions). Confirm with the user first instead of
+	// silently saving straight through - this only ever blocks the save
+	// while the user has NOT yet confirmed; a genuine over-allocation
+	// (allocated > cheque) still gets rejected by the server as before.
+	if (frm.doc.without_party || !frm.doc.party_type || !frm.doc.company) {
+		return;
+	}
+	return new Promise((resolve, reject) => {
+		frappe.call({
+			method:
+				"treasury.treasury.doctype.cheque_payment.cheque_payment.check_pending_advance",
+			args: {
+				company: frm.doc.company,
+				party_type: frm.doc.party_type,
+				cheque_amount: frm.doc.cheque_amount,
+				items: frm.doc.cheque_payment_items || [],
+				deductions: frm.doc.deductions || [],
+			},
+			callback: (r) => {
+				const result = r.message || {};
+				if (!result.surplus) {
+					resolve();
+					return;
+				}
+				frappe.confirm(
+					__(
+						"The unallocated amount of {0} will be booked as an advance on {1}. Continue?",
+						[
+							format_currency(result.amount, frm.doc.currency),
+							"<b>" + frappe.utils.escape_html(result.account) + "</b>",
+						]
+					),
+					() => resolve(),
+					() => reject()
+				);
+			},
+			error: () => resolve(), // never block save on a preview-check failure
+		});
+	});
+},
+
 preview_ledger(frm) {
 frappe
 .call({

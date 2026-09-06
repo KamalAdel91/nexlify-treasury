@@ -110,18 +110,98 @@ class TestChequeSurplusAdvance(FrappeTestCase):
 		on_account_total = sum(flt(r.credit) for r in rows if not r.get("against_voucher"))
 		self.assertAlmostEqual(on_account_total, 500.0, places=2)
 
-	def test_surplus_still_rejected_for_payment(self):
-		"""The strict equation stays enforced on Cheque Payment."""
-		doc = self._surplus_doc()
-		doc.doctype = "Cheque Payment"
-		with self.assertRaises(frappe.ValidationError):
-			validate_deductions(doc, "cheque_payment_items", "Cheque Payment")
-
 	def test_over_allocation_still_rejected_for_receipt(self):
 		"""Allocation larger than the cheque stays forbidden on receipts."""
 		doc = self._surplus_doc(cheque=9000.0, allocated=10000.0)
 		with self.assertRaises(frappe.ValidationError):
 			validate_deductions(doc, "table_wgxh", "Cheque Receipt", allow_cheque_surplus=True)
+
+	def _surplus_payment_doc(self, cheque=10500.0, allocated=10000.0, party=None, party_type="Supplier"):
+		"""In-memory Cheque Payment (never inserted): cheque > allocation."""
+		doc = frappe.get_doc({
+			"doctype": "Cheque Payment",
+			"company": self.company,
+			"posting_date": today(),
+			"currency": self.fx.currency,
+			"cheque_no": "T5-PAY-SURP",
+			"cheque_date": today(),
+			"cheque_amount": cheque,
+			"bank": self.fx.bank_gl,
+			"without_party": 0,
+			"party_type": party_type,
+			"party": party or self.party,
+			"cheque_payment_items": [{
+				"doc_type": "Purchase Invoice",
+				"voucher_no": "FAKE-VCH",
+				"allocated_amount": allocated,
+				"apply_deduction": 0,
+			}],
+		})
+		doc.set_missing_values()
+		return doc
+
+	def test_resolver_prefers_payable_advance_account_for_payable_party_types(self):
+		"""Supplier, Employee and Shareholder are all account_type=Payable in
+		ERPNext's own Party Type fixtures - all three must resolve to the
+		same Payable-side advance/payable account, not the Receivable one."""
+		payable = frappe.db.get_value("Company", self.company, "default_payable_account")
+		advance_paid = frappe.db.get_value("Company", self.company, "default_advance_paid_account")
+		try:
+			frappe.db.set_value("Company", self.company, "book_advance_payments_in_separate_party_account", 0)
+			for party_type in ("Supplier", "Employee", "Shareholder"):
+				self.assertEqual(resolve_difference_account(self.company, party_type), payable)
+			if advance_paid:
+				frappe.db.set_value("Company", self.company, "book_advance_payments_in_separate_party_account", 1)
+				for party_type in ("Supplier", "Employee", "Shareholder"):
+					self.assertEqual(resolve_difference_account(self.company, party_type), advance_paid)
+		finally:
+			frappe.db.set_value("Company", self.company, "book_advance_payments_in_separate_party_account", 0)
+
+	def test_surplus_accepted_for_payment_and_gl_balanced(self):
+		"""Cheque Payment now accepts an unallocated remainder too (any
+		difference, not just full-zero allocation), correctly resolving
+		the surplus/advance path and the Payable-side account - the exact
+		mirror of Cheque Receipt's Cr advance row logic. (GL-row balance
+		for the *zero*-allocation case is verified end-to-end in
+		test_surplus_accepted_for_payment_with_zero_allocation below - this
+		one only needs a real, submitted Purchase Invoice to safely reach
+		get_gl_entries()'s own party-account lookup for the allocated row,
+		which is out of scope for this specific check.)"""
+		doc = self._surplus_payment_doc(cheque=10500.0, allocated=10000.0)
+
+		validate_deductions(doc, "cheque_payment_items", "Cheque Payment", allow_cheque_surplus=True)
+		self.assertAlmostEqual(doc.difference_amount, -500.0, places=2)
+		self.assertTrue(getattr(doc, "_difference_account", None))
+		self.assertEqual(
+			doc._difference_account,
+			resolve_difference_account(self.company, "Supplier"),
+		)
+
+	def test_surplus_accepted_for_payment_with_zero_allocation(self):
+		"""No allocation at all (the user's original request): the whole
+		cheque amount is booked as an advance, matching stock ERPNext
+		Payment Entry's own behaviour - never a hard validation error.
+		An empty items table (not one zero-amount row) is the accurate
+		shape of "nothing was allocated", and also means get_gl_entries()
+		never has to resolve a party account for any allocation row."""
+		doc = self._surplus_payment_doc(cheque=5000.0, allocated=0.0)
+		doc.cheque_payment_items = []
+
+		validate_deductions(doc, "cheque_payment_items", "Cheque Payment", allow_cheque_surplus=True)
+		self.assertAlmostEqual(doc.difference_amount, -5000.0, places=2)
+
+		rows = doc.get_gl_entries()
+		debit = sum(flt(r.debit) for r in rows)
+		credit = sum(flt(r.credit) for r in rows)
+		self.assertAlmostEqual(debit, 5000.0, places=2)
+		self.assertAlmostEqual(credit, 5000.0, places=2)
+
+	def test_over_allocation_still_rejected_for_payment(self):
+		"""Allocation larger than the cheque stays forbidden on payments too -
+		enabling surplus only ever covers an UNDER-allocated remainder."""
+		doc = self._surplus_payment_doc(cheque=9000.0, allocated=10000.0)
+		with self.assertRaises(frappe.ValidationError):
+			validate_deductions(doc, "cheque_payment_items", "Cheque Payment", allow_cheque_surplus=True)
 
 
 class TestReconciliationCancelPreflight(FrappeTestCase):

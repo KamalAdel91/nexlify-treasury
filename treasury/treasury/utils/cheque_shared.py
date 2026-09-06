@@ -218,26 +218,50 @@ def validate_items(self, items_fieldname, allowed_vouchers, voucher_party_fields
 	return total_allocated
 
 
-def resolve_difference_account(company):
-	"""Resolve the account a cheque surplus (cheque > allocations) is booked on.
+def resolve_difference_account(company, party_type=None):
+	"""Resolve the account a cheque surplus/unallocated-remainder is booked on.
+
+	Mirrors ERPNext's own Payment Entry advance-account resolution: the
+	choice is driven by the party type's account_type (Receivable/Payable),
+	not by any specific party type name - Customer is Receivable; Supplier,
+	Employee and Shareholder are all Payable (confirmed in ERPNext's own
+	fixture data), and any custom Party Type follows the same account_type
+	field. Falls back to Receivable behaviour (matching the original,
+	Cheque-Receipt-only version of this function) when no party_type is
+	given, e.g. a without_party cheque.
 
 	Uses Company.book_advance_payments_in_separate_party_account to pick
-	between Default Advance Received Account and Default Receivable Account,
-	falling back to the receivable account when the advance account is unset.
+	between the dedicated advance account and the plain receivable/payable
+	account, falling back to the plain account when the advance account is
+	unset either way.
 	"""
+	account_type = None
+	if party_type:
+		account_type = frappe.db.get_value("Party Type", party_type, "account_type")
+
 	book_separate = cint(
 		frappe.db.get_value("Company", company, "book_advance_payments_in_separate_party_account")
 	)
-	field = "default_advance_received_account" if book_separate else "default_receivable_account"
-	account = frappe.db.get_value("Company", company, field)
-	if not account and book_separate:
-		account = frappe.db.get_value("Company", company, "default_receivable_account")
+
+	if account_type == "Payable":
+		field = "default_advance_paid_account" if book_separate else "default_payable_account"
+		account = frappe.db.get_value("Company", company, field)
+		if not account and book_separate:
+			account = frappe.db.get_value("Company", company, "default_payable_account")
+		fallback_label = _("Default Advance Paid / Payable Account")
+	else:
+		field = "default_advance_received_account" if book_separate else "default_receivable_account"
+		account = frappe.db.get_value("Company", company, field)
+		if not account and book_separate:
+			account = frappe.db.get_value("Company", company, "default_receivable_account")
+		fallback_label = _("Default Advance Received / Receivable Account")
+
 	if not account:
 		frappe.throw(_(
 			"No {0} is set on Company {1}. Set it to allow cheque surpluses to be "
 			"booked as advances."
 		).format(
-			frappe.bold(_("Default Advance Received / Receivable Account")),
+			frappe.bold(fallback_label),
 			frappe.bold(company),
 		))
 	return account
@@ -279,7 +303,7 @@ def validate_deductions(self, items_fieldname, doctype_label, allow_cheque_surpl
 		if self.difference_amount < -0.005 and allow_cheque_surplus:
 			# Cheque is LARGER than what was allocated: accept it and book the
 			# surplus as an on-account/advance amount on the party's account.
-			self._difference_account = resolve_difference_account(self.company)
+			self._difference_account = resolve_difference_account(self.company, self.get("party_type"))
 			# validate() runs on every Save AND again on Submit - only notify
 			# once, on the Save that actually introduces/changes the surplus,
 			# not a second time when the user goes on to submit the same doc.
