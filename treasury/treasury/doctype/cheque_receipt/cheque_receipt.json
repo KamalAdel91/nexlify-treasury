@@ -240,7 +240,7 @@
    "in_standard_filter": 1,
    "label": "Cheque Status",
    "no_copy": 1,
-   "options": "Cheques In Hand\nUnder Collection\nReconciled",
+   "options": "Cheques In Hand\nUnder Collection\nReconciled\nCancelled",
    "read_only": 1
   },
   {

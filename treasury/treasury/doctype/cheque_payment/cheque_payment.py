@@ -44,6 +44,12 @@ class ChequePayment(AccountsController):
 		from treasury.treasury.utils.ledger import delete_voucher_ledger_entries
 		delete_voucher_ledger_entries(self)
 	def validate(self):
+		# Amending a cancelled cheque carries its cheque_status ("Cancelled")
+		# straight into the fresh draft - reset it back to the normal
+		# starting status so a newly re-submitted cheque never displays as
+		# "Cancelled" while actually active (docstatus 0 or 1).
+		if self.is_new() and self.amended_from and self.cheque_status == "Cancelled":
+			self.cheque_status = "Issued"
 		self.validate_booking_mode()
 		self.set_missing_values()
 		self._validate_frozen_accounting()
@@ -517,6 +523,34 @@ def check_pending_advance(company, party_type, cheque_amount, items=None, deduct
 		"amount": -difference,
 		"account": resolve_difference_account(company, party_type),
 	}
+
+
+@frappe.whitelist()
+def get_default_account_paid_to(company, party_type):
+	"""Suggested default for the Account Paid To field, keyed off the
+	party type - NOT the advance-specific account (see
+	resolve_difference_account in cheque_shared.py, used for the surplus
+	only): Employee defaults to Company.default_expense_claim_payable_account
+	when hrms is installed and it's set (falling back to the generic
+	Payable account otherwise, exactly like resolve_difference_account
+	does for its own Employee case), Customer to
+	Company.default_receivable_account, everything else (Supplier,
+	Shareholder, any custom Payable party type) to
+	Company.default_payable_account.
+	"""
+	if not frappe.has_permission("Cheque Payment", "read"):
+		frappe.throw(_("Not permitted to read Cheque Payment"), frappe.PermissionError)
+
+	if party_type == "Employee" and frappe.get_meta("Company").has_field(
+		"default_expense_claim_payable_account"
+	):
+		account = frappe.db.get_value("Company", company, "default_expense_claim_payable_account")
+		if account:
+			return account
+
+	account_type = frappe.db.get_value("Party Type", party_type, "account_type")
+	field = "default_receivable_account" if account_type == "Receivable" else "default_payable_account"
+	return frappe.db.get_value("Company", company, field)
 
 
 

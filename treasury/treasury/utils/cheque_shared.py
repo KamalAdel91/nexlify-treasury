@@ -320,7 +320,15 @@ def validate_deductions(self, items_fieldname, doctype_label, allow_cheque_surpl
 		if self.difference_amount < -0.005 and allow_cheque_surplus:
 			# Cheque is LARGER than what was allocated: accept it and book the
 			# surplus as an on-account/advance amount on the party's account.
-			self._difference_account = resolve_difference_account(self.company, self.get("party_type"))
+			# A user-set Account (visible field, auto-defaulted per party
+			# type, always mandatory) always wins over the generic
+			# auto-resolved advance account. Only Cheque Payment currently
+			# repurposes its "account" field this way (see its JSON/JS) -
+			# Cheque Receipt's own "account" field stays without_party-only,
+			# so self.get("account") is safely empty there in this branch.
+			self._difference_account = self.get("account") or resolve_difference_account(
+				self.company, self.get("party_type")
+			)
 			# validate() runs on every Save AND again on Submit - only notify
 			# once, on the Save that actually introduces/changes the surplus,
 			# not a second time when the user goes on to submit the same doc.

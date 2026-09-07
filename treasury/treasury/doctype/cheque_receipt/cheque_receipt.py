@@ -44,6 +44,12 @@ class ChequeReceipt(AccountsController):
 		delete_voucher_ledger_entries(self)
 
 	def validate(self):
+		# Amending a cancelled cheque carries its cheque_status
+		# ("Cancelled") straight into the fresh draft - reset it back to
+		# the normal starting status so a newly re-submitted cheque never
+		# displays as "Cancelled" while actually active (docstatus 0 or 1).
+		if self.is_new() and self.amended_from and self.cheque_status == "Cancelled":
+			self.cheque_status = "Cheques In Hand"
 		self.set_missing_values()
 		self._validate_frozen_accounting()
 		self.validate_currency()

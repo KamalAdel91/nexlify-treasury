@@ -22,12 +22,12 @@
   "party_type",
   "party",
   "party_name",
-  "account",
   "column_break_cheque",
   "cheque_no",
   "bank",
   "cheque_date",
   "cost_center",
+  "account",
   "section_break_items",
   "cheque_payment_items",
   "section_break_deductions",
@@ -122,6 +122,17 @@
    "read_only": 1
   },
   {
+   "bold": 1,
+   "fieldname": "account",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Account",
+   "no_copy": 1,
+   "options": "Account",
+   "reqd": 1,
+   "description": "Without Party: the sole account this cheque posts against. With a Party: the account the unallocated remainder (if any) is booked against - auto-filled from Company settings based on Party Type, change it if needed. The allocated portion always still posts to each voucher's own real account, unaffected by this field."
+  },
+  {
    "depends_on": "eval:!doc.without_party",
    "fieldname": "party_type",
    "fieldtype": "Link",
@@ -150,16 +161,6 @@
    "in_global_search": 1,
    "in_standard_filter": 1,
    "label": "Party Name"
-  },
-  {
-   "bold": 1,
-   "depends_on": "eval:doc.without_party",
-   "fieldname": "account",
-   "fieldtype": "Link",
-   "in_standard_filter": 1,
-   "label": "Account",
-   "mandatory_depends_on": "eval:doc.without_party",
-   "options": "Account"
   },
   {
    "fieldname": "column_break_cheque",
@@ -233,7 +234,7 @@
    "in_standard_filter": 1,
    "label": "Cheque Status",
    "no_copy": 1,
-   "options": "Issued\nReconciled",
+   "options": "Issued\nReconciled\nCancelled",
    "read_only": 1
   },
   {

@@ -49,6 +49,10 @@ return { filters };
 frm.set_query("account", () => {
 const filters = { is_group: 0, disabled: 0 };
 if (frm.doc.company) filters.company = frm.doc.company;
+if (!frm.doc.without_party) {
+const account_type = (frappe.boot.party_account_types || {})[frm.doc.party_type];
+filters.account_type = account_type || ["in", ["Payable", "Receivable"]];
+}
 return { filters };
 });
 
@@ -112,10 +116,11 @@ company: frm.doc.company,
 before_save(frm) {
 	// Any unallocated remainder (partial allocation, or none at all) is
 	// booked as an advance server-side (see check_pending_advance /
-	// validate_deductions). Confirm with the user first instead of
-	// silently saving straight through - this only ever blocks the save
-	// while the user has NOT yet confirmed; a genuine over-allocation
-	// (allocated > cheque) still gets rejected by the server as before.
+	// validate_deductions) against Account Paid To - a visible, mandatory
+	// field the user has already reviewed/set on the form itself. This is
+	// just a final confirmation naming the amount and that account, not a
+	// second place to edit it. A genuine over-allocation (allocated >
+	// cheque) still gets rejected by the server as before.
 	if (frm.doc.without_party || !frm.doc.party_type || !frm.doc.company) {
 		return;
 	}
@@ -136,17 +141,35 @@ before_save(frm) {
 					resolve();
 					return;
 				}
-				frappe.confirm(
-					__(
-						"The unallocated amount of {0} will be booked as an advance on {1}. Continue?",
-						[
-							format_currency(result.amount, frm.doc.currency),
-							"<b>" + frappe.utils.escape_html(result.account) + "</b>",
-						]
-					),
-					() => resolve(),
-					() => reject()
+				let settled = false;
+				const dialog = frappe.prompt(
+					[
+						{
+							fieldname: "account",
+							fieldtype: "Link",
+							options: "Account",
+							label: __("Account for the unallocated amount"),
+							default: result.account,
+							reqd: 1,
+							description: __(
+								"The unallocated amount of {0} will be booked as an advance on this account. Change it if needed before confirming.",
+								[format_currency(result.amount, frm.doc.currency)]
+							),
+						},
+					],
+					(values) => {
+						settled = true;
+						frm.set_value("account", values.account);
+						resolve();
+					},
+					__("Confirm Advance Account"),
+					__("Confirm")
 				);
+				dialog.on_hide = () => {
+					if (!settled) {
+						reject();
+					}
+				};
 			},
 			error: () => resolve(), // never block save on a preview-check failure
 		});
@@ -252,6 +275,7 @@ if (frm.doc.party) {
 frm.set_value("party", "");
 }
 frm.set_value("party_name", "");
+_set_default_account(frm);
 },
 
 update_difference(frm) {
@@ -311,6 +335,7 @@ frm.set_value("cost_center", r.message.cost_center);
 }
 });
 }
+_set_default_account(frm);
 },
 });
 
@@ -386,3 +411,16 @@ frappe.set_route("Form", "All Cheques", frm.doc.all_cheques);
 }
 },
 });
+
+function _set_default_account(frm) {
+if (frm.doc.without_party || !frm.doc.party_type || !frm.doc.company) return;
+frappe.call({
+method: "treasury.treasury.doctype.cheque_payment.cheque_payment.get_default_account_paid_to",
+args: { company: frm.doc.company, party_type: frm.doc.party_type },
+callback: (r) => {
+if (r.message) {
+frm.set_value("account", r.message);
+}
+},
+});
+}
