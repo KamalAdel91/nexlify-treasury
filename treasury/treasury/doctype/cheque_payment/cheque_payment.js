@@ -142,8 +142,9 @@ before_save(frm) {
 					return;
 				}
 				let settled = false;
-				const dialog = frappe.prompt(
-					[
+				const dialog = new frappe.ui.Dialog({
+					title: __("Confirm Advance Account"),
+					fields: [
 						{
 							fieldname: "account",
 							fieldtype: "Link",
@@ -157,19 +158,20 @@ before_save(frm) {
 							),
 						},
 					],
-					(values) => {
+					primary_action_label: __("Confirm"),
+					primary_action: (values) => {
 						settled = true;
 						frm.set_value("account", values.account);
+						dialog.hide();
 						resolve();
 					},
-					__("Confirm Advance Account"),
-					__("Confirm")
-				);
+				});
 				dialog.on_hide = () => {
 					if (!settled) {
 						reject();
 					}
 				};
+				dialog.show();
 			},
 			error: () => resolve(), // never block save on a preview-check failure
 		});
