@@ -170,18 +170,6 @@ class ChequeReconciliation(AccountsController):
 			debit_gl, flt(self.total_amount), credit_gl, _(self.cheque_type)
 		)
 
-	def _restore_cheque(self):
-		if not (self.cheque_type and self.cheque):
-			return
-		if not frappe.db.exists(self.cheque_type, self.cheque):
-			return
-		status = "Under Collection" if self.cheque_type == "Cheque Receipt" else "Issued"
-		frappe.db.set_value(
-			self.cheque_type,
-			self.cheque,
-			{"cheque_status": status, "bank_transaction": None, "clearance_date": None, "reconciliation_doc": None},
-		)
-
 	def _delink_from_bank_transaction(self):
 		if not self.bank_transaction:
 			return

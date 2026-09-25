@@ -15,7 +15,6 @@ from frappe.utils import flt, today
 
 from treasury.tests.utils import (
 	TreasuryFixtures,
-	gl_totals,
 	make_bank_transaction,
 	make_deposit,
 	make_receipt,

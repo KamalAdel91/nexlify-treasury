@@ -50,11 +50,6 @@ CUSTOM_FIELDS = {
 }
 
 
-def before_install():
-    """Add custom fields to Payment Entry."""
-    _ensure_fields()
-
-
 def after_migrate():
     """Re-apply custom fields on every migrate (idempotent)."""
     _ensure_fields()
