@@ -97,7 +97,7 @@ after_install = "treasury.treasury.setup.install._ensure_fields"
 # Uninstallation
 # ------------
 
-# before_uninstall = "treasury.uninstall.before_uninstall"
+before_uninstall = "treasury.treasury.setup.install.before_uninstall"
 # after_uninstall = "treasury.uninstall.after_uninstall"
 
 # Integration Setup
