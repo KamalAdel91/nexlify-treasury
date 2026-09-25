@@ -14,9 +14,9 @@ from frappe.utils import cint, flt, formatdate, getdate, nowdate
 from treasury.treasury.utils.cheque_shared import resolve_difference_account, resolve_party_name
 
 
-PARTY_ACCOUNT_TYPE_MAP = {
-	"Customer": "Receivable",
-	"Supplier": "Payable",
+VOUCHER_PARTY_ACCOUNT_FIELD = {
+	"Sales Invoice": "debit_to",
+	"Expense Claim": "payable_account",
 }
 
 VOUCHER_PARTY_FIELDS = {
@@ -142,18 +142,43 @@ class ChequeReceipt(AccountsController):
 			frappe.throw(_("Cheque Receiving Account cannot be a {0} control account").format(acct))
 		return account
 
-	def _get_party_account(self):
+	def _get_party_account(self, doc_type=None, voucher_no=None):
+		"""Party control account: from the referenced voucher itself when it has
+		one (SI.debit_to, Expense Claim.payable_account, JE party row), otherwise
+		the party's own default account - never just "the first Receivable"."""
 		cache = getattr(frappe.local, "treasury_party_accounts", None) or {}
-		key = (self.party_type, self.party, self.company)
+		key = (self.party_type, self.party, self.company, doc_type, voucher_no)
 		if key not in cache:
-			account_type = PARTY_ACCOUNT_TYPE_MAP.get(self.party_type, self.party_type)
-			filters = {"account_type": account_type, "is_group": 0, "company": self.company}
-			result = frappe.get_all("Account", filters=filters, limit_page_length=1, pluck="name")
-			if not result:
-				frappe.throw(_("No {0} account found for {1} in {2}").format(account_type, self.party_name or self.party, self.company))
-			cache[key] = result[0]
+			account = None
+			field = VOUCHER_PARTY_ACCOUNT_FIELD.get(doc_type)
+			if field and voucher_no:
+				account = frappe.db.get_value(doc_type, voucher_no, field)
+			elif doc_type == "Journal Entry" and voucher_no:
+				rows = frappe.get_all(
+					"Journal Entry Account",
+					filters={"parent": voucher_no, "party_type": self.party_type, "party": self.party},
+					pluck="account",
+					limit_page_length=1,
+				)
+				account = rows[0] if rows else None
+			cache[key] = account or self._default_party_account()
 			frappe.local.treasury_party_accounts = cache
 		return cache[key]
+
+	def _default_party_account(self):
+		"""Party Account table on the party, else the Company default for the
+		party type's account_type (Receivable/Payable)."""
+		from erpnext.accounts.party import get_party_account
+
+		account = get_party_account(self.party_type, self.party, self.company)
+		if not account:
+			account_type = frappe.db.get_value("Party Type", self.party_type, "account_type")
+			field = "default_payable_account" if account_type == "Payable" else "default_receivable_account"
+			account = frappe.db.get_value("Company", self.company, field)
+		if not account:
+			frappe.throw(_("No party account found for {0} {1} in {2}").format(
+				_(self.party_type), frappe.bold(self.party), self.company))
+		return account
 
 	def _exchange_rate(self):
 		company_ccy = frappe.db.get_value("Company", self.company, "default_currency")
@@ -270,13 +295,14 @@ class ChequeReceipt(AccountsController):
 		# Cr party per allocation row: the allocated amount settles the voucher (PE style)
 		for item in items:
 			alloc = flt(item.allocated_amount)
+			item_acct = self._get_party_account(item.doc_type, item.voucher_no)
 			credit = frappe._dict({**base})
-			credit.account = party_acct
+			credit.account = item_acct
 			credit.debit = 0
 			credit.credit = alloc * rate
 			credit.debit_in_account_currency = 0
 			credit.credit_in_account_currency = alloc * rate
-			credit.account_currency = get_account_currency(party_acct)
+			credit.account_currency = get_account_currency(item_acct)
 			credit.party_type = self.party_type
 			credit.party = self.party
 			credit.against_voucher_type = item.doc_type
