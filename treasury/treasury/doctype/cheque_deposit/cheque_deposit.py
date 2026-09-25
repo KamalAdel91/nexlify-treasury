@@ -5,9 +5,9 @@ import frappe
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_account_currency
 from erpnext.controllers.accounts_controller import AccountsController
-from erpnext.setup.utils import get_exchange_rate
 from frappe import _
 from frappe.utils import flt, getdate
+from treasury.treasury.utils import cheque_shared
 
 
 CHEQUE_STATUS_IN_HAND = "Cheques In Hand"
@@ -127,16 +127,6 @@ class ChequeDeposit(AccountsController):
 			frappe.throw(_("Set Cheque Receiving Account and Under Collection Account for Company {0} in Cheque Settings").format(frappe.bold(self.company)))
 		return receiving, under_collection
 
-	def _exchange_rate(self):
-		"""Foreign->company currency rate for GL posting (mirrors Cheque Receipt)."""
-		company_ccy = frappe.db.get_value("Company", self.company, "default_currency")
-		rate = 1.0
-		if self.currency != company_ccy:
-			rate = get_exchange_rate(self.currency, company_ccy, self.posting_date)
-			if not rate:
-				frappe.throw(_("Could not determine exchange rate for {0}").format(self.currency))
-		return flt(rate)
-
 	def get_gl_entries(self):
 		"""Stage-2 posting: move each cheque from the Cheque Receiving Account
 		to the Under Collection Account.
@@ -145,7 +135,6 @@ class ChequeDeposit(AccountsController):
 		Cr Cheque Receiving Account  (per cheque, closing the stage-1 GL)
 		"""
 		receiving, under_collection = self._get_settings_accounts()
-		rate = self._exchange_rate()
 		base = frappe._dict(
 			{
 				"company": self.company,
@@ -157,6 +146,8 @@ class ChequeDeposit(AccountsController):
 		)
 		rows = []
 		for item in self.get("cheque_deposit_items") or []:
+			# the rate the cheque was received at, so Cheque Receiving closes exactly
+			rate = cheque_shared.source_rate("Cheque Receipt", item.cheque_receipt)
 			amt = flt(item.amount) * rate
 			if amt <= 0:
 				continue
@@ -172,6 +163,7 @@ class ChequeDeposit(AccountsController):
 			dr.against_voucher_type = "Cheque Receipt"
 			dr.against_voucher = item.cheque_receipt
 			dr.user_remark = _("Deposit of {0}").format(item.cheque_receipt)
+			dr.rate = rate
 			rows.append(dr)
 
 			cr = frappe._dict({**base})
@@ -185,9 +177,10 @@ class ChequeDeposit(AccountsController):
 			cr.against_voucher_type = "Cheque Receipt"
 			cr.against_voucher = item.cheque_receipt
 			cr.user_remark = _("Deposit of {0}").format(item.cheque_receipt)
+			cr.rate = rate
 			rows.append(cr)
 
-		return rows
+		return cheque_shared.set_account_currency_amounts(rows, self.company, self.currency, 1)
 
 	def on_submit(self):
 		# enforce chronological order (cheque date <= deposit date) as configured
