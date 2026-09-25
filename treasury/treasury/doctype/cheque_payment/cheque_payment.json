@@ -17,6 +17,7 @@
   "section_break_booking",
   "without_party",
   "currency",
+  "exchange_rate",
   "cheque_amount",
   "difference_amount",
   "party_type",
@@ -277,6 +278,14 @@
    "allow_on_submit": 1,
    "no_copy": 1,
    "hidden": 1
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate",
+   "precision": "9",
+   "read_only": 1,
+   "description": "Cheque currency to company currency, fixed on every Save while Draft. The deposit and the bank clearance reuse it."
   }
  ],
  "grid_page_length": 50,
@@ -334,5 +343,6 @@
    "submit": 1,
    "write": 1
   }
- ]
+ ],
+ "modified": "2026-09-25 20:40:00.000000"
 }
