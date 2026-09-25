@@ -277,6 +277,9 @@ extend_doctype_class = {
 # Cheques appear as checkboxes in the "Reconcile the Bank Transaction" dialog
 bank_reconciliation_doctypes = ["Cheque Receipt", "Cheque Payment"]
 
+# ERPNext adds every Accounting Dimension to these doctypes
+accounting_dimension_doctypes = ["Treasury Payment Entry Account"]
+
 # Propose pending cheques (Under Collection deposits / Issued payments) for a Bank Transaction
 get_matching_queries = [
 	"treasury.treasury.utils.bank_reconciliation.get_matching_queries_hook"

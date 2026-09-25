@@ -76,5 +76,14 @@ def _ensure_fields():
                 {"doctype": "Custom Field", "dt": doctype, **field_def}
             )
             cf.insert(ignore_permissions=True)
+    _add_dimensions()
     frappe.db.commit()
     frappe.clear_cache(doctype="Payment Entry")
+
+
+def _add_dimensions():
+    """Every Accounting Dimension (existing or added later) gets a field on the expense lines."""
+    from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
+        create_accounting_dimensions_for_doctype,
+    )
+    create_accounting_dimensions_for_doctype("Treasury Payment Entry Account")
