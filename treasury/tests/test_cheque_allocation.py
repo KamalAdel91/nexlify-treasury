@@ -1,5 +1,6 @@
-"""T6 — Unallocated cheque balance reconciled from Payment Reconciliation and
-undone from Unreconcile Payment (via Cheque Allocation)."""
+"""T6 — Unallocated cheque balance reconciled from Payment Reconciliation (the
+invoice is added to the cheque's own allocation table, Payment Entry style) and
+undone from Unreconcile Payment."""
 import json
 
 import frappe
@@ -96,8 +97,11 @@ class TestChequeAllocation(FrappeTestCase):
 			pr.allocate_entries(frappe._dict({"invoices": invoices, "payments": payments}))
 			pr.reconcile()
 
-			ca = frappe.get_all("Cheque Allocation", filters={"cheque": cr.name, "docstatus": 1}, pluck="name")
-			self.assertEqual(len(ca), 1)
+			cr.reload()
+			rows = [r for r in cr.table_wgxh if r.voucher_no == je.name]
+			self.assertEqual(len(rows), 1, "the invoice must be added to the cheque itself")
+			self.assertAlmostEqual(rows[0].allocated_amount, 600)
+			self.assertAlmostEqual(cr.difference_amount, -400)
 			self.assertAlmostEqual(open_amount("Journal Entry", je.name, self.receivable, "Customer", self.party), 0)
 			self.assertAlmostEqual(open_amount("Cheque Receipt", cr.name, self.receivable, "Customer", self.party, advance=True), 400)
 
@@ -112,17 +116,16 @@ class TestChequeAllocation(FrappeTestCase):
 
 			create_unreconcile_doc_for_selection(json.dumps([{
 				"company": self.company,
-				"voucher_type": "Cheque Allocation",
-				"voucher_no": ca[0],
+				"voucher_type": "Cheque Receipt",
+				"voucher_no": cr.name,
 				"against_voucher_type": "Journal Entry",
 				"against_voucher_no": je.name,
 			}]))
-			self.assertEqual(frappe.db.get_value("Cheque Allocation", ca[0], "docstatus"), 2)
+			cr.reload()
+			self.assertEqual([r.unlinked for r in cr.table_wgxh if r.voucher_no == je.name], [1])
 			self.assertAlmostEqual(open_amount("Journal Entry", je.name, self.receivable, "Customer", self.party), 600)
 			self.assertAlmostEqual(open_amount("Cheque Receipt", cr.name, self.receivable, "Customer", self.party, advance=True), 1000)
 		finally:
-			for name in frappe.get_all("Cheque Allocation", filters={"cheque": cr.name if cr else ""}, pluck="name"):
-				safe_cancel_delete("Cheque Allocation", name)
 			safe_cancel_delete("Journal Entry", je.name if je else None)
 			safe_cancel_delete("Cheque Receipt", cr.name if cr else None)
 
