@@ -8,8 +8,6 @@ Every rule in Cheque Settings is a Select: None / Warn / Stop.
 either blocks (Stop), notifies (Warn) or skips (None).
 """
 
-from functools import lru_cache
-
 import frappe
 from frappe import _
 
@@ -27,15 +25,12 @@ DEFAULT_LEVELS = {
 }
 
 
-@lru_cache(maxsize=1)
 def _cached_levels():
-    # read tabSingles directly (Singles is not a registered DocType)
-    rows = frappe.db.sql(
-        """select field, value from `tabSingles` where doctype = 'Cheque Settings'""",
-        as_dict=True,
-    )
-    vals = {r["field"]: (r["value"] or "") for r in rows}
-    return {k: (vals.get(k) or DEFAULT_LEVELS[k]) for k in DEFAULT_LEVELS}
+    # get_cached_doc is per site and is invalidated on every Cheque Settings save,
+    # in all workers. (functools.lru_cache was per process: shared between the
+    # sites of one bench, and never refreshed after the settings changed.)
+    settings = frappe.get_cached_doc("Cheque Settings")
+    return {k: (settings.get(k) or DEFAULT_LEVELS[k]) for k in DEFAULT_LEVELS}
 
 
 def get_level(rule):
@@ -66,8 +61,7 @@ def enrich(rule, condition_broken, message, allow_warn=True):
 
 
 def clear_cache():
-    _cached_levels.cache_clear()
-    frappe.db.value_cache = {}
+    frappe.clear_document_cache("Cheque Settings", "Cheque Settings")
 
 TREASURY_ADMIN_ROLES = ("System Manager", "Accounts Manager")
 
