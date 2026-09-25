@@ -14,7 +14,8 @@
 		"allocated_amount",
 		"apply_deduction",
 		"deduction_amount",
-		"deduction_account"
+		"deduction_account",
+		"unlinked"
 	],
 	"fields": [
 		{
@@ -80,13 +81,21 @@
 			"in_list_view": 1,
 			"label": "Outstanding",
 			"read_only": 1
+		},
+		{
+			"default": "0",
+			"fieldname": "unlinked",
+			"fieldtype": "Check",
+			"label": "Unreconciled",
+			"read_only": 1,
+			"description": "Set by Unreconcile Payment: this row no longer settles the voucher; its amount is back on the cheque as an open balance."
 		}
 	],
 	"grid_page_length": 50,
 	"index_web_pages_for_search": 1,
 	"istable": 1,
 	"links": [],
-	"modified": "2026-08-28 00:45:00.000000",
+	"modified": "2026-09-25 21:10:00.000000",
 	"modified_by": "Administrator",
 	"module": "Treasury",
 	"name": "Cheque Receipt Items",
