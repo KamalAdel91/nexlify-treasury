@@ -7,7 +7,7 @@ import json
 import frappe
 from erpnext import get_default_cost_center
 from frappe import _
-from frappe.utils import cint, flt
+from frappe.utils import cint, flt, formatdate, getdate
 
 
 def resolve_party_name(party_type, party):
@@ -351,3 +351,24 @@ def validate_deductions(self, items_fieldname, doctype_label, allow_cheque_surpl
 				frappe.utils.fmt_money(collection_deductions, currency=self.currency),
 				frappe.utils.fmt_money(self.difference_amount, currency=self.currency),
 			))
+
+
+def validate_frozen_accounting(doc):
+	"""Early (validate-time) check of the Company's Accounts Frozen Till date,
+	so the user gets a clear message before submit. ERPNext enforces the same
+	rule again when the GL is posted. v16 keeps both settings on Company."""
+	if not doc.company or not doc.posting_date:
+		return
+	frozen_till, allowed_role = frappe.get_cached_value(
+		"Company", doc.company, ["accounts_frozen_till_date", "role_allowed_for_frozen_entries"]
+	)
+	if not frozen_till or getdate(doc.posting_date) > getdate(frozen_till):
+		return
+	if frappe.session.user == "Administrator" or (allowed_role and allowed_role in frappe.get_roles()):
+		return
+	frappe.throw(
+		_("Posting date {0} falls before Accounts Frozen Till {1} for Company {2}. "
+		  "Only users with role {3} can post.").format(
+			formatdate(doc.posting_date), formatdate(frozen_till),
+			doc.company, allowed_role or _("Administrator"))
+	)

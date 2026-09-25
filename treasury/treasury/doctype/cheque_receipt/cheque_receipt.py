@@ -71,20 +71,9 @@ class ChequeReceipt(AccountsController):
 			self.cost_center = get_default_cost_center(self.company)
 
 	def _validate_frozen_accounting(self):
-		if not self.company or not self.posting_date:
-			return
-		frozen_till = frappe.db.get_value("Company", self.company, "accounts_frozen_till_date")
-		if not frozen_till:
-			return
-		if getdate(self.posting_date) <= getdate(frozen_till):
-			modifier_role = frappe.db.get_value(
-				"Accounts Settings", "Accounts Settings", "frozen_accounts_modifier")
-			if modifier_role not in frappe.get_roles() and frappe.session.user != "Administrator":
-				frappe.throw(
-					_("Posting date {0} falls before Accounts Frozen Till {1} for Company {2}. "
-					  "Only users with role {3} can post.").format(
-						formatdate(self.posting_date), formatdate(frozen_till),
-						self.company, modifier_role or "Accounts Manager"))
+		from treasury.treasury.utils.cheque_shared import validate_frozen_accounting
+
+		validate_frozen_accounting(self)
 
 	def validate_currency(self):
 		if not self.currency:
