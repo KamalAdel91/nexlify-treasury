@@ -126,10 +126,85 @@ class TestChequeAllocation(FrappeTestCase):
 			safe_cancel_delete("Journal Entry", je.name if je else None)
 			safe_cancel_delete("Cheque Receipt", cr.name if cr else None)
 
-	def test_unreconcile_rejects_allocation_made_on_the_cheque(self):
-		doc = frappe.new_doc("Unreconcile Payment")
-		doc.company = self.company
-		doc.voucher_type = "Cheque Receipt"
-		doc.voucher_no = "ANY"
-		with self.assertRaises(frappe.ValidationError):
-			doc.validate()
+	def _payable_journal(self, supplier, payable, amount):
+		je = frappe.get_doc({
+			"doctype": "Journal Entry",
+			"company": self.company,
+			"posting_date": today(),
+			"accounts": [
+				{"account": self.fx.expense_account, "debit_in_account_currency": amount,
+				 "cost_center": self.fx.cost_center},
+				{"account": payable, "party_type": "Supplier", "party": supplier,
+				 "credit_in_account_currency": amount, "cost_center": self.fx.cost_center},
+			],
+		})
+		je.insert(ignore_permissions=True)
+		je.submit()
+		return je
+
+	def test_unreconcile_allocation_made_on_the_cheque(self):
+		"""An allocation made in the cheque's own table is undone by Unreconcile
+		Payment: the voucher is open again and the cheque carries the amount."""
+		supplier = self.fx.party("Supplier", "Treasury Test Supplier")
+		payable = frappe.db.get_value("Company", self.company, "default_payable_account")
+		cp = je = None
+		try:
+			je = self._payable_journal(supplier, payable, 600)
+			cp = frappe.get_doc({
+				"doctype": "Cheque Payment",
+				"company": self.company,
+				"posting_date": today(),
+				"currency": self.fx.currency,
+				"cheque_no": "T6-UNL-" + frappe.generate_hash(length=6),
+				"cheque_date": today(),
+				"cheque_amount": 600,
+				"bank": self.fx.bank_account,
+				"without_party": 0,
+				"party_type": "Supplier",
+				"party": supplier,
+				"account": payable,
+				"cheque_payment_items": [{
+					"doc_type": "Journal Entry", "voucher_no": je.name,
+					"allocated_amount": 600, "apply_deduction": 0,
+				}],
+			})
+			cp.insert(ignore_permissions=True)
+			cp.submit()
+			self.assertAlmostEqual(open_amount("Journal Entry", je.name, payable, "Supplier", supplier), 0)
+
+			from erpnext.accounts.doctype.unreconcile_payment.unreconcile_payment import (
+				create_unreconcile_doc_for_selection,
+			)
+
+			create_unreconcile_doc_for_selection(json.dumps([{
+				"company": self.company,
+				"voucher_type": "Cheque Payment",
+				"voucher_no": cp.name,
+				"against_voucher_type": "Journal Entry",
+				"against_voucher_no": je.name,
+			}]))
+
+			self.assertAlmostEqual(open_amount("Journal Entry", je.name, payable, "Supplier", supplier), 600)
+			self.assertAlmostEqual(
+				open_amount("Cheque Payment", cp.name, payable, "Supplier", supplier, advance=True), 600
+			)
+			cp.reload()
+			self.assertEqual(cp.cheque_payment_items[0].unlinked, 1)
+			self.assertAlmostEqual(cp.difference_amount, -600)
+
+			# the freed amount can now be reconciled again from Payment Reconciliation
+			pr = frappe.get_doc({
+				"doctype": "Payment Reconciliation",
+				"company": self.company,
+				"party_type": "Supplier",
+				"party": supplier,
+				"receivable_payable_account": payable,
+			})
+			pr.get_unreconciled_entries()
+			listed = [p for p in pr.payments if p.reference_name == cp.name]
+			self.assertEqual(len(listed), 1)
+			self.assertAlmostEqual(listed[0].amount, 600)
+		finally:
+			safe_cancel_delete("Cheque Payment", cp.name if cp else None)
+			safe_cancel_delete("Journal Entry", je.name if je else None)
+
