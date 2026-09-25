@@ -99,3 +99,27 @@ def get_open_cheques(pr):
 			)
 		)
 	return rows
+
+
+ITEMS_FIELD = {"Cheque Receipt": "table_wgxh", "Cheque Payment": "cheque_payment_items"}
+
+
+def unlink_cheque_from_voucher(cheque_type, cheque_name, ref_type, ref_no):
+	"""Undo an allocation made on the cheque itself (its allocation table), the way
+	ERPNext undoes a Payment Entry reference: the cheque's ledger rows against the
+	voucher move back onto the cheque as an open balance. The allocation row is
+	kept for history and flagged "unlinked"; difference_amount grows by the same
+	amount, so the cheque shows the new unallocated balance."""
+	from erpnext.accounts.utils import update_accounting_ledgers_after_reference_removal
+
+	update_accounting_ledgers_after_reference_removal(ref_type, ref_no, cheque_name)
+
+	cheque = frappe.get_doc(cheque_type, cheque_name)
+	moved = 0
+	for row in cheque.get(ITEMS_FIELD[cheque_type]) or []:
+		if row.doc_type == ref_type and row.voucher_no == ref_no and not row.get("unlinked"):
+			row.db_set("unlinked", 1, update_modified=False)
+			moved += flt(row.allocated_amount)
+	if moved:
+		cheque.db_set("difference_amount", flt(cheque.difference_amount) - moved, update_modified=False)
+
