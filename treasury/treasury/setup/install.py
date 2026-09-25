@@ -50,6 +50,15 @@ def after_migrate():
     _ensure_fields()
 
 
+def before_uninstall():
+    used = frappe.db.count("Payment Entry", {"multi_expense": 1, "docstatus": ["!=", 0]})
+    if used:
+        frappe.throw(
+            f"{used} submitted/cancelled Multi Expense Payment Entries exist. "
+            "Uninstalling would delete their expense/revenue lines, so treasury cannot be removed."
+        )
+
+
 def _ensure_fields():
     for doctype, fields in CUSTOM_FIELDS.items():
         for field_def in fields:
