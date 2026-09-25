@@ -5,7 +5,9 @@
 import json
 
 import frappe
-from erpnext import get_default_cost_center
+from erpnext import get_company_currency, get_default_cost_center
+from erpnext.accounts.utils import get_account_currency
+from erpnext.setup.utils import get_exchange_rate
 from frappe import _
 from frappe.utils import cint, flt, formatdate, getdate
 
@@ -396,4 +398,57 @@ def check_duplicate_cheque(doc, match_fields):
 				frappe.bold(doc.cheque_no), _(doc.doctype), frappe.bold(dup)
 			),
 		)
+
+
+# ── exchange rates ─────────────────────────────────────────────
+
+
+def market_rate(company, currency, date):
+	"""Cheque currency -> company currency on the given date (1 for company currency)."""
+	company_currency = get_company_currency(company)
+	if not currency or currency == company_currency:
+		return 1.0
+	rate = get_exchange_rate(currency, company_currency, date)
+	if not rate:
+		frappe.throw(_("Could not determine exchange rate for {0}").format(currency))
+	return flt(rate)
+
+
+def source_rate(doctype, name):
+	"""The rate fixed on a Cheque Receipt / Cheque Payment. Entries saved before the
+	field existed fall back to the market rate on their own posting date, which is
+	the rate their GL was posted with."""
+	src = frappe.db.get_value(
+		doctype, name, ["company", "currency", "posting_date", "exchange_rate"], as_dict=True
+	)
+	if flt(src.exchange_rate):
+		return flt(src.exchange_rate)
+	return market_rate(src.company, src.currency, src.posting_date)
+
+
+def set_account_currency_amounts(rows, company, doc_currency, rate):
+	"""Rows carry debit/credit in company currency (amount x rate). Fill the
+	*_in_account_currency side from each account's own currency: company-currency
+	accounts keep the company amount, accounts in the cheque currency get the
+	original amount back. A row may carry its own "rate" (e.g. the bank leg of a
+	clearance at the clearance-date rate)."""
+	company_currency = get_company_currency(company)
+	for row in rows:
+		row_rate = flt(row.pop("rate", None) or rate)
+		row.account_currency = row.get("account_currency") or get_account_currency(row.account)
+		row.debit = flt(row.debit, 2)
+		row.credit = flt(row.credit, 2)
+		if row.account_currency == company_currency:
+			row.debit_in_account_currency = row.debit
+			row.credit_in_account_currency = row.credit
+		elif row.account_currency == doc_currency and row_rate:
+			row.debit_in_account_currency = flt(row.debit / row_rate, 2)
+			row.credit_in_account_currency = flt(row.credit / row_rate, 2)
+		else:
+			frappe.throw(
+				_("Account {0} is in {1}. Only {2} or {3} accounts can be used here.").format(
+					frappe.bold(row.account), row.account_currency, company_currency, doc_currency
+				)
+			)
+	return rows
 

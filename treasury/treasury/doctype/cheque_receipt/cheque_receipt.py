@@ -6,7 +6,6 @@ from erpnext import get_default_cost_center
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_account_currency
 from erpnext.controllers.accounts_controller import AccountsController
-from erpnext.setup.utils import get_exchange_rate
 from frappe import _
 from frappe.utils import flt, formatdate, getdate
 from treasury.treasury.utils.cheque_shared import resolve_difference_account, resolve_party_name
@@ -57,6 +56,8 @@ class ChequeReceipt(AccountsController):
 		self.validate_currency()
 		self.validate_booking_mode()
 		self.validate_basic_data()
+		if self.docstatus == 0:
+			self.exchange_rate = cheque_shared.market_rate(self.company, self.currency, self.posting_date)
 		cheque_shared.check_duplicate_cheque(self, ["drawn_bank"])
 		self.validate_items()
 		self.validate_deductions()
@@ -173,13 +174,11 @@ class ChequeReceipt(AccountsController):
 		return account
 
 	def _exchange_rate(self):
-		company_ccy = frappe.db.get_value("Company", self.company, "default_currency")
-		rate = 1.0
-		if self.currency != company_ccy:
-			rate = get_exchange_rate(self.currency, company_ccy, self.posting_date)
-			if not rate:
-				frappe.throw(_("Could not determine exchange rate for {0}").format(self.currency))
-		return flt(rate)
+		"""Rate fixed on the cheque (set on every draft Save); the deposit and the
+		bank clearance reuse it, so the clearing accounts close exactly."""
+		if flt(self.get("exchange_rate")):
+			return flt(self.exchange_rate)
+		return cheque_shared.market_rate(self.company, self.currency, self.posting_date)
 
 	def get_gl_entries(self):
 		receiving = self._get_receiving_account()
@@ -235,7 +234,7 @@ class ChequeReceipt(AccountsController):
 			credit.account_currency = get_account_currency(self.account)
 			credit.against_account = receiving
 			rows.append(credit)
-			return rows
+			return cheque_shared.set_account_currency_amounts(rows, self.company, self.currency, rate)
 
 		# ---- With Party: allocations + row deductions + collection deductions ----
 		party_acct = self._get_party_account()
@@ -323,7 +322,7 @@ class ChequeReceipt(AccountsController):
 			adv.user_remark = _("Cheque surplus booked as advance")
 			rows.append(adv)
 
-		return rows
+		return cheque_shared.set_account_currency_amounts(rows, self.company, self.currency, rate)
 
 	def on_submit(self):
 		make_gl_entries(self.get_gl_entries(), merge_entries=False)

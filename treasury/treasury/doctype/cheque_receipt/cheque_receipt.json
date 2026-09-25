@@ -17,6 +17,7 @@
   "section_break_qmli",
   "without_party",
   "currency",
+  "exchange_rate",
   "cheque_amount",
   "difference_amount",
   "difference_account",
@@ -291,13 +292,21 @@
    "allow_on_submit": 1,
    "no_copy": 1,
    "hidden": 1
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate",
+   "precision": "9",
+   "read_only": 1,
+   "description": "Cheque currency to company currency, fixed on every Save while Draft. The deposit and the bank clearance reuse it."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-08-27 23:30:00.000000",
+ "modified": "2026-09-25 20:40:00.000000",
  "modified_by": "Administrator",
  "module": "Treasury",
  "name": "Cheque Receipt",
