@@ -45,7 +45,14 @@ class TreasuryPaymentEntryMixin:
     # ---------------------------------------------------------------
 
     def is_multi_expense(self):
-        return self._treasury_multi_expense_enabled() and cint(self.get("multi_expense")) == 1
+        if cint(self.get("multi_expense")) != 1:
+            return False
+        # Cancelling must reverse the entry the way it was posted, even if the
+        # feature was switched off in Treasury Settings since. The setting only
+        # decides whether NEW entries can use multi mode.
+        if self.docstatus == 2:
+            return True
+        return self._treasury_multi_expense_enabled()
 
     def _treasury_multi_expense_enabled(self):
         """True when the Treasury Settings checkbox enables this feature.
