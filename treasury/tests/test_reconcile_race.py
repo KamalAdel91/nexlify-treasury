@@ -113,18 +113,18 @@ class TestDoubleReconcileProtection(FrappeTestCase):
 	# ── B2: schema verification ──
 
 	def test_unique_constraint_exists_on_schema(self):
-		"""Verify UNIQUE index on Cheque Reconciliation.cheque in the DB."""
+		"""Verify UNIQUE index on Cheque Reconciliation.active_cheque in the DB."""
 		indexes = frappe.db.sql(
 			"""SHOW INDEX FROM `tabCheque Reconciliation`
-			   WHERE Column_name = 'cheque' AND Non_unique = 0""",
+			   WHERE Column_name = 'active_cheque' AND Non_unique = 0""",
 			as_dict=True,
 		)
 		self.assertTrue(
 			len(indexes) >= 1,
-			"Expected a UNIQUE index on tabCheque Reconciliation.cheque, none found",
+			"Expected a UNIQUE index on tabCheque Reconciliation.active_cheque, none found",
 		)
 		for idx in indexes:
-			self.assertEqual(idx["Column_name"], "cheque")
+			self.assertEqual(idx["Column_name"], "active_cheque")
 			self.assertEqual(idx["Non_unique"], 0)
 
 
@@ -133,19 +133,19 @@ class TestDoubleReconcileProtection(FrappeTestCase):
 		the after_migrate guard must rebuild the UNIQUE index on cheque."""
 		from treasury.patches.add_unique_index_cheque_reconciliation import ensure_unique_index
 
-		frappe.db.sql_ddl("ALTER TABLE `tabCheque Reconciliation` DROP INDEX `cheque`")
+		frappe.db.sql_ddl("ALTER TABLE `tabCheque Reconciliation` DROP INDEX `active_cheque`")
 		frappe.db.commit()
 		try:
 			ensure_unique_index()
 			frappe.db.commit()
 			indexes = frappe.db.sql(
 				"SHOW INDEX FROM `tabCheque Reconciliation` "
-				"WHERE Column_name = 'cheque' AND Non_unique = 0",
+				"WHERE Column_name = 'active_cheque' AND Non_unique = 0",
 				as_dict=True,
 			)
 			self.assertGreaterEqual(
 				len(indexes), 1,
-				"after_migrate guard did not recreate the UNIQUE index on cheque",
+				"after_migrate guard did not recreate the UNIQUE index on active_cheque",
 			)
 		finally:
 			ensure_unique_index()
