@@ -19,7 +19,8 @@
   "freeze_linked_deposit",
   "validate_duplicate_rcn",
   "warn_party_mismatch",
-  "warn_reference_mismatch"
+  "warn_reference_mismatch",
+  "warn_duplicate_cheque"
  ],
  "fields": [
   {
@@ -120,12 +121,19 @@
   {
    "fieldname": "column_break_elfn",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "Warn",
+   "fieldname": "warn_duplicate_cheque",
+   "fieldtype": "Select",
+   "label": "Warn when the same cheque number is used on another active cheque",
+   "options": "None\nWarn\nStop"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-28 23:15:18.667089",
+ "modified": "2026-09-25 20:30:00.000000",
  "modified_by": "Administrator",
  "module": "Treasury",
  "name": "Cheque Settings",

@@ -372,3 +372,28 @@ def validate_frozen_accounting(doc):
 			formatdate(doc.posting_date), formatdate(frozen_till),
 			doc.company, allowed_role or _("Administrator"))
 	)
+
+
+def check_duplicate_cheque(doc, match_fields):
+	"""Same cheque number (and bank) already on another active cheque of this
+	doctype. Level (None/Warn/Stop) comes from Cheque Settings. Runs on Save
+	only, so a Warn is not shown a second time on Submit."""
+	if not doc.get("cheque_no") or getattr(doc, "_action", None) == "submit":
+		return
+	filters = {"cheque_no": doc.cheque_no, "docstatus": ("<", 2), "name": ("!=", doc.name or "")}
+	for f in match_fields:
+		if not doc.get(f):
+			return
+		filters[f] = doc.get(f)
+	dup = frappe.db.get_value(doc.doctype, filters, "name")
+	if dup:
+		from treasury.treasury.utils.validations import enrich
+
+		enrich(
+			"warn_duplicate_cheque",
+			True,
+			"Cheque No {0} is already used on {1} {2}.".format(
+				frappe.bold(doc.cheque_no), _(doc.doctype), frappe.bold(dup)
+			),
+		)
+

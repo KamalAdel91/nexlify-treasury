@@ -22,6 +22,7 @@ DEFAULT_LEVELS = {
     "validate_duplicate_rcn": "Stop",
     "warn_party_mismatch": "Warn",
     "warn_reference_mismatch": "Warn",
+    "warn_duplicate_cheque": "Warn",
 }
 
 

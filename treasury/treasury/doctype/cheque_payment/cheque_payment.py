@@ -60,6 +60,7 @@ class ChequePayment(AccountsController):
 		self.currency = self._bank_account_currency()
 		self.validate_currency()
 		self.validate_basic_data()
+		cheque_shared.check_duplicate_cheque(self, ["bank"])
 		self.validate_items()
 		self.validate_deductions()
 

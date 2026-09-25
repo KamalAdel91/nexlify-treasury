@@ -57,6 +57,7 @@ class ChequeReceipt(AccountsController):
 		self.validate_currency()
 		self.validate_booking_mode()
 		self.validate_basic_data()
+		cheque_shared.check_duplicate_cheque(self, ["drawn_bank"])
 		self.validate_items()
 		self.validate_deductions()
 
