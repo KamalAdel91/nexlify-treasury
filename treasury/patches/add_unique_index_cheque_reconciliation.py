@@ -1,23 +1,28 @@
-"""DB-level UNIQUE protection for Cheque Reconciliation.cheque.
+"""DB-level UNIQUE protection for Cheque Reconciliation, active documents only.
 
-The DocType field ``cheque`` (a Dynamic Link) must be unique per cheque to
-prevent double-reconciliation races, but Frappe's ``check_unique_and_text``
-rejects ``unique`` on Dynamic Link fields — marking it would lock the
-"Edit DocType" form.  The UNIQUE index is therefore maintained at the
-database layer only:
+One cheque may have only ONE active (draft or submitted) Cheque Reconciliation,
+to prevent double-reconciliation races. A cancelled one must NOT count: after
+"Unreconcile" the cheque has to be reconcilable again.
 
-1. ``execute`` — ``post_model_sync`` patch entry point (runs once after the
-   schema sync on first upgrade).
-2. ``ensure_unique_index`` — idempotent re-assert, also registered as the
-   app's ``after_migrate`` hook so every future ``bench migrate`` rebuilds
-   the index that schema sync drops (the meta no longer declares it unique).
+Frappe cannot express this in meta (``unique`` is rejected on a Dynamic Link,
+and it would count cancelled rows anyway), so it lives at the database layer:
+
+- ``active_cheque``: a generated column = ``cheque`` while docstatus < 2,
+  NULL once cancelled (MariaDB allows any number of NULLs in a UNIQUE index).
+- UNIQUE index ``active_cheque`` on that column.
+- The legacy UNIQUE index ``cheque`` (counted cancelled rows too) is dropped.
+
+The column is not in the DocType meta, so schema sync never touches it.
+``ensure_unique_index`` is idempotent and runs from the post_model_sync patch,
+the after_migrate hook and on_doctype_update.
 """
 
 import frappe
 
-DOC_TYPE = "Cheque Reconciliation"
-INDEX_NAME = "cheque"
-COLUMN = "cheque"
+TABLE = "`tabCheque Reconciliation`"
+COLUMN = "active_cheque"
+INDEX_NAME = "active_cheque"
+LEGACY_INDEX = "cheque"
 
 
 def execute():
@@ -26,23 +31,29 @@ def execute():
 
 
 def ensure_unique_index():
-    """Idempotently create UNIQUE index ``cheque`` on ``Cheque Reconciliation.cheque``.
+    """Idempotently create the generated column + UNIQUE index, drop the legacy one.
 
-    No-op on non-MariaDB engines. Safe to call any number of times — checks
-    ``SHOW INDEX`` before issuing any DDL.
+    No-op on non-MariaDB engines. Checks the schema before issuing any DDL.
     """
     if frappe.db.db_type != "mariadb":
         return
 
-    table = f"`tab{DOC_TYPE}`"
-    rows = frappe.db.sql(f"SHOW INDEX FROM {table}", as_dict=True)
+    columns = {row[0] for row in frappe.db.sql(f"SHOW COLUMNS FROM {TABLE}")}
+    if COLUMN not in columns:
+        frappe.db.sql_ddl(
+            f"ALTER TABLE {TABLE} ADD COLUMN `{COLUMN}` VARCHAR(140) "
+            f"AS (IF(`docstatus` < 2, `cheque`, NULL)) PERSISTENT"
+        )
+
+    rows = frappe.db.sql(f"SHOW INDEX FROM {TABLE}", as_dict=True)
+    if any(r.get("Key_name") == LEGACY_INDEX and not r.get("Non_unique") for r in rows):
+        frappe.db.sql_ddl(f"ALTER TABLE {TABLE} DROP INDEX `{LEGACY_INDEX}`")
+
     exists = any(
-        row.get("Key_name") == INDEX_NAME
-        and row.get("Column_name") == COLUMN
-        and not row.get("Non_unique")
-        for row in rows
+        r.get("Key_name") == INDEX_NAME
+        and r.get("Column_name") == COLUMN
+        and not r.get("Non_unique")
+        for r in rows
     )
     if not exists:
-        frappe.db.sql_ddl(
-            f"ALTER TABLE {table} ADD UNIQUE INDEX `{INDEX_NAME}` (`{COLUMN}`)"
-        )
+        frappe.db.sql_ddl(f"ALTER TABLE {TABLE} ADD UNIQUE INDEX `{INDEX_NAME}` (`{COLUMN}`)")
