@@ -32,9 +32,19 @@ CUSTOM_FIELDS = {
             "fieldname": "treasury_total_amount",
             "fieldtype": "Currency",
             "label": "Total Amount",
+            "options": "treasury_expense_currency",
             "insert_after": "treasury_expense_items",
             "read_only": 1,
             "depends_on": "eval:doc.multi_expense == 1",
+        },
+        {
+            "fieldname": "treasury_expense_currency",
+            "fieldtype": "Link",
+            "label": "Lines Currency",
+            "options": "Currency",
+            "insert_after": "treasury_total_amount",
+            "read_only": 1,
+            "hidden": 1,
         },
     ],
 }
@@ -80,6 +90,11 @@ def _ensure_fields():
                     frappe.db.set_value(
                         "Custom Field", existing[0], "insert_after", field_def["insert_after"]
                     )
+                # same for options (e.g. the currency of treasury_total_amount)
+                if field_def.get("options") and frappe.db.get_value(
+                    "Custom Field", existing[0], "options"
+                ) != field_def["options"]:
+                    frappe.db.set_value("Custom Field", existing[0], "options", field_def["options"])
                 continue
             cf = frappe.get_doc(
                 {"doctype": "Custom Field", "dt": doctype, **field_def}
