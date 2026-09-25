@@ -116,7 +116,7 @@ def validate_items(self, items_fieldname, allowed_vouchers, voucher_party_fields
 		return 0
 
 	# an amended cheque does not carry over rows that were unreconciled
-	if self.is_new() and self.get("amended_from"):
+	if self.get("amended_from") and self.is_new():
 		self.set(items_fieldname, [r for r in self.get(items_fieldname) or [] if not r.get("unlinked")])
 
 	allowed = allowed_vouchers.get(self.party_type or "", ())

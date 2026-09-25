@@ -6,7 +6,6 @@ A cheque amount that was not allocated to an invoice is booked on the party as
 an advance against the cheque itself (Payment Ledger against_voucher = cheque).
 """
 
-import erpnext
 import frappe
 from frappe import _
 from frappe.query_builder.functions import Sum
@@ -15,21 +14,17 @@ from frappe.utils import flt, getdate
 CHEQUE_DOCTYPES = ("Cheque Receipt", "Cheque Payment")
 
 
-def _sign(party_type):
-	return 1 if erpnext.get_party_account_type(party_type) == "Receivable" else -1
-
-
 def open_amount(against_type, against_no, account, party_type, party, advance=False):
-	"""Open amount on the Payment Ledger. Invoices are open on the natural side of
-	the party account (receivable: debit), cheque advances on the opposite side."""
+	"""Open amount on the Payment Ledger. Its amounts are already signed per account
+	type (receivable: debit - credit, payable: credit - debit), so an invoice is
+	open when the sum is positive and a cheque advance when it is negative."""
 	total = frappe.db.sql(
 		"""select sum(amount_in_account_currency) from `tabPayment Ledger Entry`
 		where against_voucher_type=%s and against_voucher_no=%s and account=%s
 			and party_type=%s and party=%s and delinked=0""",
 		(against_type, against_no, account, party_type, party),
 	)[0][0]
-	sign = _sign(party_type) * (-1 if advance else 1)
-	return flt(sign * flt(total), 2)
+	return flt((-1 if advance else 1) * flt(total), 2)
 
 
 def get_open_cheques(pr):
@@ -62,10 +57,9 @@ def get_open_cheques(pr):
 	if pr.get("payment_name"):
 		query = query.where(ple.against_voucher_no.like(f"%{pr.payment_name}%"))
 
-	sign = -_sign(pr.party_type)
 	rows = []
 	for r in query.run(as_dict=True):
-		amount = flt(sign * flt(r.balance), 2)
+		amount = flt(-flt(r.balance), 2)
 		if amount <= 0:
 			continue
 		cheque = frappe.db.get_value(
