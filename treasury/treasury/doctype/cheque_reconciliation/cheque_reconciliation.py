@@ -2,12 +2,13 @@
 # For license information, please see license.txt
 
 import frappe
+from erpnext import get_default_cost_center
 from erpnext.accounts.general_ledger import make_gl_entries, make_reverse_gl_entries
 from erpnext.accounts.utils import get_account_currency
 from erpnext.controllers.accounts_controller import AccountsController
-from erpnext.setup.utils import get_exchange_rate
 from frappe import _
 from frappe.utils import flt, getdate
+from treasury.treasury.utils import cheque_shared
 
 
 class ChequeReconciliation(AccountsController):
@@ -107,30 +108,43 @@ class ChequeReconciliation(AccountsController):
 		other_gl = self._settings_account("cheque_issuing_account")
 		return other_gl, bank_gl
 
-	def _exchange_rate(self):
-		"""Foreign->company currency rate for GL posting (mirrors Cheque Receipt)."""
-		company_ccy = frappe.db.get_value("Company", self.company, "default_currency")
-		rate = 1.0
-		if self.currency != company_ccy:
-			rate = get_exchange_rate(self.currency, company_ccy, self.posting_date)
-			if not rate:
-				frappe.throw(_("Could not determine exchange rate for {0}").format(self.currency))
-		return flt(rate)
-
 	def _gl_rows(self):
+		"""Bank leg at the clearance-date rate; clearing leg (Under Collection /
+		Cheque Issuing) at the rate the cheque was booked with, so it closes
+		exactly. Any difference is the realised exchange gain/loss."""
+		bank_gl = self._bank_gl()
 		debit_gl, credit_gl = self._gl_detail()
 		remark = _("Cleared cheque {0} {1} via Bank Transaction {2}").format(
 			_(self.cheque_type), self.cheque, self.bank_transaction
 		)
-		amount = flt(self.total_amount) * self._exchange_rate()
-		return [
-			self._gl_row(debit_gl, amount, 0, credit_gl, remark),
-			self._gl_row(credit_gl, 0, amount, debit_gl, remark),
+		amount = flt(self.total_amount)
+		src_rate = cheque_shared.source_rate(self.cheque_type, self.cheque)
+		bank_rate = cheque_shared.market_rate(self.company, self.currency, self.posting_date)
+		dr_rate = bank_rate if debit_gl == bank_gl else src_rate
+		cr_rate = bank_rate if credit_gl == bank_gl else src_rate
+		rows = [
+			self._gl_row(debit_gl, amount * dr_rate, 0, credit_gl, remark, dr_rate),
+			self._gl_row(credit_gl, 0, amount * cr_rate, debit_gl, remark, cr_rate),
 		]
+		diff = flt(amount * dr_rate, 2) - flt(amount * cr_rate, 2)
+		if abs(diff) >= 0.01:
+			fx_account = frappe.get_cached_value("Company", self.company, "exchange_gain_loss_account")
+			if not fx_account:
+				frappe.throw(
+					_("Set an Exchange Gain / Loss Account on Company {0}").format(frappe.bold(self.company))
+				)
+			fx = self._gl_row(
+				fx_account, -diff if diff < 0 else 0, diff if diff > 0 else 0,
+				bank_gl, _("Exchange gain/loss on cheque {0}").format(self.cheque), 1,
+			)
+			fx.cost_center = get_default_cost_center(self.company)
+			rows.append(fx)
+		return cheque_shared.set_account_currency_amounts(rows, self.company, self.currency, bank_rate)
 
-	def _gl_row(self, account, debit, credit, against_account, remark):
+	def _gl_row(self, account, debit, credit, against_account, remark, rate=None):
 		return frappe._dict(
 			{
+				"rate": rate,
 				"account": account,
 				"account_currency": get_account_currency(account),
 				"debit": flt(debit),
