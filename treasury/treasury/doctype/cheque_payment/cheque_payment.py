@@ -10,8 +10,12 @@ from erpnext.accounts.utils import get_account_currency
 from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate
 from frappe import _
-from frappe.utils import cint, flt, formatdate, getdate, nowdate
+from frappe.utils import flt, formatdate, getdate
 from treasury.treasury.utils.cheque_shared import resolve_difference_account, resolve_party_name
+from treasury.treasury.utils import cheque_shared
+
+DOCTYPE = "Cheque Payment"
+ITEMS_FIELD = "cheque_payment_items"
 
 
 PARTY_ACCOUNT_TYPE_MAP = {
@@ -378,44 +382,24 @@ class ChequePayment(AccountsController):
 			)
 
 
+# Whitelisted endpoints used by the form - thin wrappers over cheque_shared.
+
+
 @frappe.whitelist()
 def get_party_documents(party_type):
 	"""DocTypes (voucher types) selectable for a given party type."""
-	if not frappe.has_permission("Cheque Payment", "read"):
-		frappe.throw(_("Not permitted to read Cheque Payment"), frappe.PermissionError)
-	return list(PARTY_TYPE_VOUCHERS.get(party_type, ()))
+	return cheque_shared.get_party_documents(DOCTYPE, party_type, PARTY_TYPE_VOUCHERS)
 
 
 @frappe.whitelist()
 def get_party_details(party_type, party):
-	if not frappe.has_permission("Cheque Payment", "read"):
-		frappe.throw(_("Not permitted to read Cheque Payment"), frappe.PermissionError)
-
-	if not frappe.db.exists(party_type, party):
-		frappe.throw(_("{0} {1} does not exist").format(_(party_type), _(party)))
-	return {"party_name": resolve_party_name(party_type, party)}
+	return cheque_shared.get_party_details(DOCTYPE, party_type, party)
 
 
 @frappe.whitelist()
 def get_voucher_summary(doc_type, voucher_no):
 	"""Return Grand Total & Outstanding for a voucher row."""
-	if not frappe.has_permission("Cheque Payment", "read"):
-		frappe.throw(_("Not permitted to read Cheque Payment"), frappe.PermissionError)
-
-	if not doc_type or not voucher_no or not frappe.db.exists(doc_type, voucher_no):
-		return {}
-	ref = frappe.db.get_value(
-		doc_type,
-		voucher_no,
-		["grand_total", "outstanding_amount"],
-		as_dict=True,
-	)
-	if not ref:
-		return {}
-	return {
-		"grand_total": flt(ref.get("grand_total")),
-		"outstanding": flt(ref.get("outstanding_amount")),
-	}
+	return cheque_shared.get_voucher_summary(DOCTYPE, doc_type, voucher_no)
 
 
 @frappe.whitelist()
@@ -434,54 +418,10 @@ def get_preview_ledger(
 	deductions=None,
 ):
 	"""Return exactly how the GL entry will look WITHOUT saving anything."""
-	if not frappe.has_permission("Cheque Payment", "read"):
-		frappe.throw(_("Not permitted to read Cheque Payment"), frappe.PermissionError)
-
-	def _rows(value):
-		if not value:
-			return []
-		if isinstance(value, str):
-			value = json.loads(value)
-		return value
-
-	fake = frappe.new_doc("Cheque Payment")
-	fake.update(
-		{
-			"company": company,
-			"posting_date": posting_date or nowdate(),
-			"currency": currency,
-			"cheque_amount": cheque_amount,
-			"without_party": cint(without_party),
-			"party_type": party_type,
-			"party": party,
-			"account": account,
-			"cheque_no": cheque_no,
-			"cheque_date": cheque_date,
-		}
+	return cheque_shared.get_preview_ledger(
+		DOCTYPE, ITEMS_FIELD, company, posting_date, currency, cheque_amount,
+		without_party, party_type, party, account, cheque_no, cheque_date, items, deductions,
 	)
-	for it in _rows(items):
-		fake.append("cheque_payment_items", it)
-	for dd in _rows(deductions):
-		fake.append("deductions", dd)
-
-	# soft mode: the preview must render even while unbalanced
-	if not fake.cost_center:
-		fake.cost_center = get_default_cost_center(fake.company)
-	rows = fake.get_gl_entries()
-
-	out = []
-	for row in rows:
-		out.append(
-			{
-				"account": row.account,
-				"debit": row.get("debit", 0),
-				"credit": row.get("credit", 0),
-				"party_type": row.get("party_type") or "",
-				"party": row.get("party") or "",
-				"currency": row.get("account_currency"),
-			}
-		)
-	return out
 
 
 @frappe.whitelist()
