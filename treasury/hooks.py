@@ -196,9 +196,10 @@ before_uninstall = "treasury.treasury.setup.install.before_uninstall"
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "treasury.task.get_dashboard_data"
-# }
+override_doctype_dashboards = {
+    "Sales Invoice": "treasury.treasury.overrides.dashboards.sales_invoice",
+    "Purchase Invoice": "treasury.treasury.overrides.dashboards.purchase_invoice",
+}
 
 # ── Treasury Payment Entry extension (multi-expense / multi-revenue) ──
 # extend_doctype_class (not override_doctype_class): layers on top of
