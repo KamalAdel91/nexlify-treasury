@@ -207,6 +207,9 @@ before_uninstall = "treasury.treasury.setup.install.before_uninstall"
 # the module docstring in overrides/payment_entry.py for the full reasoning.
 extend_doctype_class = {
     "Payment Entry": ["treasury.treasury.overrides.payment_entry.TreasuryPaymentEntryMixin"],
+    # cheques with an open balance in Payment Reconciliation / Unreconcile Payment
+    "Payment Reconciliation": ["treasury.treasury.overrides.payment_reconciliation.TreasuryPaymentReconciliationMixin"],
+    "Unreconcile Payment": ["treasury.treasury.overrides.payment_reconciliation.TreasuryUnreconcilePaymentMixin"],
 }
 
 # exempt linked doctypes from being automatically cancelled
