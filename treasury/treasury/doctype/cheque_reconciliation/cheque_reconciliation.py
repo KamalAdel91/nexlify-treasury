@@ -7,7 +7,7 @@ from erpnext.accounts.utils import get_account_currency
 from erpnext.controllers.accounts_controller import AccountsController
 from erpnext.setup.utils import get_exchange_rate
 from frappe import _
-from frappe.utils import flt, formatdate, getdate
+from frappe.utils import flt, getdate
 
 
 class ChequeReconciliation(AccountsController):
@@ -33,33 +33,9 @@ class ChequeReconciliation(AccountsController):
 			self.posting_date = frappe.utils.today()
 
 	def _validate_frozen_accounting(self):
-		"""Prevent posting to periods already closed (mirrors ERPNext Accounts Settings)."""
-		if not self.company or not self.posting_date:
-			return
-		frozen_till = frappe.db.get_value("Company", self.company, "accounts_frozen_till_date")
-		if not frozen_till:
-			return
-		if getdate(self.posting_date) <= getdate(frozen_till):
-			modifier_role = frappe.db.get_value(
-				"Accounts Settings", "Accounts Settings", "frozen_accounts_modifier"
-			)
-			user_roles = frappe.get_roles()
-			if (
-				frozen_till
-				and modifier_role not in user_roles
-				and frappe.session.user != "Administrator"
-			):
-				frappe.throw(
-					_(
-						"Posting date {0} falls before Accounts Frozen Till {1} for Company {2}."
-						" Only users with role {3} can post."
-					).format(
-						formatdate(self.posting_date),
-						formatdate(frozen_till),
-						self.company,
-						modifier_role or "Accounts Manager",
-					)
-				)
+		from treasury.treasury.utils.cheque_shared import validate_frozen_accounting
+
+		validate_frozen_accounting(self)
 
 	def validate_currency(self):
 		"""Reuse the parent logic while skipping the party check (we are not Sales/Purchase)."""
