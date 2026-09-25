@@ -194,7 +194,7 @@ class ChequeReceipt(AccountsController):
 		})
 
 		rows = []
-		items = self.get("table_wgxh") or []
+		items = [i for i in self.get("table_wgxh") or [] if not i.get("unlinked")]
 		deductions = self.get("deductions") or []
 
 		# ---- Without Party: flat bank-to-account transfer ----

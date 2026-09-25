@@ -117,3 +117,54 @@ def unlink_cheque_from_voucher(cheque_type, cheque_name, ref_type, ref_no):
 	if moved:
 		cheque.db_set("difference_amount", flt(cheque.difference_amount) - moved, update_modified=False)
 
+
+def allocate_cheque_to_voucher(cheque_type, cheque_name, voucher_type, voucher_no, amount, cheque_account=None):
+	"""Allocate part of a cheque's open balance to a voucher the way ERPNext's
+	reconcile_against_document does it for a Payment Entry: add the reference row
+	to the cheque itself, then rebuild the cheque's Payment Ledger from its GL map.
+	The GL is left as posted - outstanding amounts come from the Payment Ledger."""
+	from erpnext.accounts.utils import _delete_pl_entries, create_payment_ledger_entry
+
+	from treasury.treasury.utils.cheque_shared import resolve_difference_account
+
+	cheque = frappe.get_doc(cheque_type, cheque_name)
+	if cheque.docstatus != 1:
+		frappe.throw(_("{0} {1} must be submitted").format(_(cheque_type), frappe.bold(cheque_name)))
+
+	party_account = cheque._get_party_account(voucher_type, voucher_no)
+	if cheque_account and cheque_account != party_account:
+		frappe.throw(
+			_("The open balance of {0} {1} is on {2}, but {3} {4} is on {5}. Allocating across two accounts "
+			  "(advances booked in a separate party account) is not supported yet.").format(
+				_(cheque_type), frappe.bold(cheque_name), frappe.bold(cheque_account),
+				_(voucher_type), frappe.bold(voucher_no), frappe.bold(party_account),
+			)
+		)
+	available = open_amount(cheque_type, cheque_name, party_account, cheque.party_type, cheque.party, advance=True)
+	if flt(amount) - available > 0.009:
+		frappe.throw(
+			_("Allocated Amount {0} is more than the open balance {1} of {2} {3}").format(
+				amount, available, _(cheque_type), frappe.bold(cheque_name)
+			)
+		)
+
+	fields = [f for f in ("grand_total", "outstanding_amount") if frappe.db.has_column(voucher_type, f)]
+	summary = (frappe.db.get_value(voucher_type, voucher_no, fields, as_dict=True) if fields else None) or {}
+	row = cheque.append(ITEMS_FIELD[cheque_type], {
+		"doc_type": voucher_type,
+		"voucher_no": voucher_no,
+		"allocated_amount": flt(amount),
+		"apply_deduction": 0,
+		"grand_total": flt(summary.get("grand_total")),
+		"outstanding": flt(summary.get("outstanding_amount")),
+	})
+	row.docstatus = 1
+	row.db_insert()
+	cheque.db_set("difference_amount", flt(cheque.difference_amount) + flt(amount), update_modified=False)
+
+	# the unallocated remainder stays on the account it was submitted with
+	cheque._difference_account = cheque.get("account") or resolve_difference_account(cheque.company, cheque.party_type)
+	_delete_pl_entries(cheque_type, cheque_name)
+	create_payment_ledger_entry(cheque.get_gl_entries(), update_outstanding="No", cancel=0, adv_adj=1)
+	return party_account
+

@@ -1,20 +1,16 @@
 """Cheques in the Connections tab of Sales / Purchase Invoice.
 
 Cheque Receipt / Cheque Payment link to the invoice from their allocation table
-(voucher_no, like Payment Entry's reference_name); Cheque Allocation links from
-its own "invoice" field (allocations made later from Payment Reconciliation).
+(voucher_no, like Payment Entry's reference_name) - also when the allocation was
+made later from Payment Reconciliation.
 """
 
 from frappe import _
 
 
 def _add_cheques(data, cheque_doctype):
-    data.setdefault("non_standard_fieldnames", {}).update(
-        {cheque_doctype: "voucher_no", "Cheque Allocation": "invoice"}
-    )
-    data.setdefault("transactions", []).append(
-        {"label": _("Cheques"), "items": [cheque_doctype, "Cheque Allocation"]}
-    )
+    data.setdefault("non_standard_fieldnames", {}).update({cheque_doctype: "voucher_no"})
+    data.setdefault("transactions", []).append({"label": _("Cheques"), "items": [cheque_doctype]})
     return data
 
 

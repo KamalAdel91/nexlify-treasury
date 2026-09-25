@@ -217,7 +217,7 @@ class ChequePayment(AccountsController):
 		})
 
 		rows = []
-		items = self.get("cheque_payment_items") or []
+		items = [i for i in self.get("cheque_payment_items") or [] if not i.get("unlinked")]
 		deductions = self.get("deductions") or []
 
 		# ---- Without Party: flat account-to-cheque transfer (mirror of Receipt) ----
