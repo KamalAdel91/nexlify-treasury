@@ -311,3 +311,12 @@ function _recalc_total(frm) {
     frm.refresh_field("base_paid_amount");
     frm.refresh_field("base_received_amount");
 }
+
+// Expense / revenue lines: only active projects of the payment's company
+frappe.ui.form.on("Payment Entry", {
+    setup(frm) {
+        frm.set_query("project", "treasury_expense_items", () => ({
+            filters: { is_active: "Yes", company: frm.doc.company },
+        }));
+    },
+});
